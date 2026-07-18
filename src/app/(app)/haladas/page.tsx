@@ -5,7 +5,11 @@ import { ERA_ORDER, ERA_LABELS } from "@/lib/content/eras";
 import { masteryBucketClass } from "@/lib/mastery/color";
 import { forecastDayToTarget } from "@/lib/mastery/forecast";
 import { dayIndexForDate } from "@/lib/session/day-index";
+import { computeStreak } from "@/lib/streak/compute";
+import { checkAndAwardBadges } from "@/lib/badges/check";
+import { cx } from "@/lib/cx";
 import { Card } from "@/components/ui/Card";
+import { BadgeToast } from "@/components/badges/BadgeToast";
 
 export default async function ProgressPage() {
   const supabase = await createClient();
@@ -16,13 +20,27 @@ export default async function ProgressPage() {
     { data: eraMastery },
     { data: weakScopes },
     { data: totalCardsRows },
+    streak,
+    { count: totalReviews },
+    { count: masteredCards },
+    newBadges,
   ] = await Promise.all([
     supabase.from("settings").select("program_start_date").eq("id", 1).maybeSingle(),
     supabase.from("mastery").select("scope_id, score, coverage, card_count").eq("scope_type", "book"),
     supabase.from("mastery").select("scope_id, score, card_count").eq("scope_type", "era"),
     supabase.from("mastery").select("scope_type, scope_id, score, card_count").gte("card_count", 5).order("score", { ascending: true }).limit(10),
     supabase.from("cards").select("id", { count: "exact", head: true }).eq("active", true),
+    computeStreak(supabase),
+    supabase.from("reviews").select("id", { count: "exact", head: true }),
+    supabase.from("card_states").select("card_id", { count: "exact", head: true }).gte("state", 2),
+    checkAndAwardBadges(supabase),
   ]);
+
+  const { data: allBadges } = await supabase
+    .from("badges")
+    .select("*")
+    .order("category", { ascending: true })
+    .order("threshold", { ascending: true });
 
   const programStart = settings?.program_start_date ?? new Date().toISOString().slice(0, 10);
   const dayIdx = dayIndexForDate(programStart, new Date());
@@ -75,10 +93,28 @@ export default async function ProgressPage() {
     return scope.scope_id;
   }
 
+  const statTiles = [
+    { value: streak.current, label: "jelenlegi sorozat" },
+    { value: streak.longest, label: "leghosszabb sorozat" },
+    { value: totalReviews ?? 0, label: "ismétlés összesen" },
+    { value: masteredCards ?? 0, label: "elsajátított kártya" },
+  ];
+
   return (
     <main className="mx-auto max-w-md px-4 pt-8 pb-6">
+      <BadgeToast badges={newBadges} />
       <h1 className="text-2xl font-extrabold text-ink">Haladás</h1>
       <p className="mt-1 text-sm text-ink-muted">{dayIdx}. nap a 365-ből</p>
+
+      {/* Stats strip */}
+      <section className="mt-4 grid grid-cols-4 gap-2">
+        {statTiles.map((s) => (
+          <div key={s.label} className="rounded-md border border-line bg-surface p-2 text-center">
+            <p className="text-lg font-extrabold text-ink">{s.value}</p>
+            <p className="text-[11px] leading-tight text-ink-faint">{s.label}</p>
+          </div>
+        ))}
+      </section>
 
       {/* Heatmap */}
       <section className="mt-6">
@@ -161,6 +197,19 @@ export default async function ProgressPage() {
             </Card>
           ))}
           {(weakScopes ?? []).length === 0 && <p className="text-ink-muted">Még nincs elég adat.</p>}
+        </div>
+      </section>
+
+      {/* Badges */}
+      <section className="mt-8">
+        <h2 className="text-sm font-extrabold uppercase tracking-wide text-ink-muted">Jelvények</h2>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {(allBadges ?? []).map((b) => (
+            <div key={b.id} className={cx("rounded-md p-3", b.earned_at ? "bg-good/70" : "bg-line")}>
+              <p className={cx("text-sm font-extrabold", b.earned_at ? "text-paper" : "text-ink-faint")}>{b.label_hu}</p>
+              {b.earned_at && <p className="mt-0.5 text-xs text-paper/80">{b.description_hu}</p>}
+            </div>
+          ))}
         </div>
       </section>
     </main>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { cx } from "@/lib/cx";
 import { useGameScore } from "@/lib/review/use-game-score";
 import { getBossCards, applyBossBonus } from "@/app/(app)/jatekok/boss/actions";
+import { BadgeToast } from "@/components/badges/BadgeToast";
 import type { PersistedCardState } from "@/lib/fsrs/engine";
 
 interface BookOption {
@@ -31,6 +32,7 @@ export function BossFightGame({ books }: { books: BookOption[] }) {
   const [correctCount, setCorrectCount] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(QUESTION_SECONDS);
   const [finished, setFinished] = useState(false);
+  const [newBadges, setNewBadges] = useState<{ id: string; label_hu: string; description_hu: string }[]>([]);
   const { submit } = useGameScore("game:boss");
 
   useEffect(() => {
@@ -62,7 +64,7 @@ export function BossFightGame({ books }: { books: BookOption[] }) {
       if (index + 1 >= items.length) {
         setFinished(true);
         const pct = ((correct ? correctCount + 1 : correctCount) / items.length) * 100;
-        if (pct >= 85 && book) await applyBossBonus(book.slug);
+        if (pct >= 85 && book) setNewBadges(await applyBossBonus(book.slug));
       } else {
         setIndex((i) => i + 1);
         setPicked(null);
@@ -91,11 +93,12 @@ export function BossFightGame({ books }: { books: BookOption[] }) {
     const pct = Math.round((correctCount / items.length) * 100);
     return (
       <div className="mt-8 text-center">
+        <BadgeToast badges={newBadges} />
         <p className="text-3xl font-extrabold text-ink">{pct}%</p>
         <p className="mt-1 text-ink-muted">
           {correctCount} / {items.length} helyes — {book.name}
         </p>
-        {pct >= 85 && <p className="mt-2 font-extrabold text-good">Badge megszerezve!</p>}
+        {pct >= 85 && <p className="mt-2 font-extrabold text-good">Mesterfokozat bónusz jóváírva!</p>}
       </div>
     );
   }

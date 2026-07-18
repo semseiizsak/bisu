@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { checkAndAwardBadges } from "@/lib/badges/check";
 
 export async function createManualCard(input: {
   prompt: string;
@@ -51,4 +52,5 @@ export async function markDayRead(day_idx: number, minutes: number) {
   });
   if (error) throw error;
   revalidatePath("/olvasas");
+  await checkAndAwardBadges(supabase);
 }

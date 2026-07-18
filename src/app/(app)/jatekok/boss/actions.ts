@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { checkAndAwardBadges } from "@/lib/badges/check";
 
 export async function getBossCards(bookId: number) {
   const supabase = await createClient();
@@ -40,8 +41,14 @@ export async function applyBossBonus(bookSlug: string) {
     .maybeSingle();
 
   const newScore = Math.min(1, (existing?.score ?? 0) + 0.05);
-  const { error } = await supabase
-    .from("mastery")
-    .upsert({ scope_type: "book", scope_id: bookSlug, score: newScore, updated_at: new Date().toISOString() });
+  const { error } = await supabase.from("mastery").upsert({
+    scope_type: "book",
+    scope_id: bookSlug,
+    score: newScore,
+    updated_at: new Date().toISOString(),
+    boss_beaten_at: new Date().toISOString(),
+  });
   if (error) throw error;
+
+  return checkAndAwardBadges(supabase);
 }

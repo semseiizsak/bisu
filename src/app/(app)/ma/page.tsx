@@ -2,10 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { buildSessionPlan } from "@/lib/session/build-session";
 import { computeDayProgress } from "@/lib/session/day-progress";
 import { computeStreak } from "@/lib/streak/compute";
+import { checkAndAwardBadges } from "@/lib/badges/check";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DayRing } from "@/components/ui/DayRing";
 import { StreakIcon } from "@/components/nav/icons";
+import { BadgeToast } from "@/components/badges/BadgeToast";
 
 const BLOCK_LABELS: Record<string, string> = {
   reading: "Olvasás",
@@ -19,7 +21,11 @@ const BLOCK_LABELS: Record<string, string> = {
 export default async function TodayPage() {
   const supabase = await createClient();
   const plan = await buildSessionPlan(supabase, new Date(), "full");
-  const [progress, streak] = await Promise.all([computeDayProgress(supabase, plan), computeStreak(supabase)]);
+  const [progress, streak, newBadges] = await Promise.all([
+    computeDayProgress(supabase, plan),
+    computeStreak(supabase),
+    checkAndAwardBadges(supabase),
+  ]);
 
   const reviewCount = plan.blocks
     .filter((b) => ["review", "new", "weak", "interleave"].includes(b.type))
@@ -38,6 +44,7 @@ export default async function TodayPage() {
 
   return (
     <main className="mx-auto max-w-md px-4 pt-8">
+      <BadgeToast badges={newBadges} />
       <h1 className="text-2xl font-extrabold text-ink">Ma</h1>
 
       <div className="mt-4 flex items-center gap-4">

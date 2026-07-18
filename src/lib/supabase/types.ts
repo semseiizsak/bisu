@@ -141,6 +141,18 @@ type MasteryRow = {
   score: number;
   card_count: number;
   updated_at: string;
+  boss_beaten_at: string | null;
+};
+
+type BadgesRow = {
+  id: string;
+  category: string;
+  metric: string;
+  label_hu: string;
+  description_hu: string;
+  threshold: number;
+  earned_at: string | null;
+  seen_at: string | null;
 };
 
 type DailySessionsRow = {
@@ -184,6 +196,7 @@ export interface Database {
       mastery: Table<MasteryRow, Pick<MasteryRow, "scope_type" | "scope_id"> & Partial<MasteryRow>>;
       daily_sessions: Table<DailySessionsRow, Pick<DailySessionsRow, "date"> & Partial<DailySessionsRow>>;
       settings: Table<SettingsRow, Partial<SettingsRow>>;
+      badges: Table<BadgesRow, Pick<BadgesRow, "id" | "category" | "metric" | "label_hu" | "description_hu" | "threshold"> & Partial<BadgesRow>>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
