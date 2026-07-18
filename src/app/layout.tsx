@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { inter, reading } from "@/lib/fonts";
+import { SplashScreen } from "@/components/SplashScreen";
+import { MotionProvider } from "@/components/MotionProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -31,7 +33,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="hu" className={`${inter.variable} ${reading.variable} h-full antialiased`}>
-      <body className="min-h-dvh flex flex-col bg-paper text-ink">{children}</body>
+      <body className="min-h-dvh flex flex-col bg-paper text-ink">
+        <MotionProvider>
+          <SplashScreen />
+          {children}
+        </MotionProvider>
+      </body>
     </html>
   );
 }
