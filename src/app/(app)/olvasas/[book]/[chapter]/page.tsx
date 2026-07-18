@@ -3,22 +3,29 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BOOKS } from "@/lib/content/books";
 import { ReaderClient } from "@/components/reading/ReaderClient";
+import { ReadingSessionCTA } from "@/components/reading/ReadingSessionCTA";
 import { ButtonLink } from "@/components/ui/Button";
+import { dayIndexForDate } from "@/lib/session/day-index";
+import { estimateReadingMinutes } from "@/lib/session/time-estimates";
 
 export default async function ChapterPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ book: string; chapter: string }>;
+  searchParams: Promise<{ next?: string; mode?: string }>;
 }) {
   const { book: bookSlug, chapter: chapterStr } = await params;
+  const { next: nextParam, mode: modeParam } = await searchParams;
   const chapter = Number(chapterStr);
   const bookDef = BOOKS.find((b) => b.slug === bookSlug);
   if (!bookDef || !Number.isFinite(chapter)) notFound();
 
   const supabase = await createClient();
-  const [{ data: book }, { data: allBooks }] = await Promise.all([
+  const [{ data: book }, { data: allBooks }, { data: settings }] = await Promise.all([
     supabase.from("books").select("id, name_hu, short_hu, chapters_count").eq("slug", bookSlug).maybeSingle(),
     supabase.from("books").select("slug, chapters_count"),
+    supabase.from("settings").select("program_start_date").eq("id", 1).maybeSingle(),
   ]);
   if (!book) notFound();
 
@@ -35,6 +42,10 @@ export default async function ChapterPage({
   if (!verses || verses.length === 0) notFound();
 
   const sessionCardCount = Math.min(10, cardCount ?? 0);
+  const showSessionCta = nextParam === "session";
+  const sessionMode = modeParam === "short" ? "short" : "full";
+  const dayIdx = dayIndexForDate(settings?.program_start_date ?? new Date().toISOString().slice(0, 10), new Date());
+  const readingMinutes = Math.max(1, Math.round(estimateReadingMinutes(verses.length)));
 
   const chaptersCountBySlug = new Map((allBooks ?? []).map((b) => [b.slug, b.chapters_count]));
   const bookIdxInOrder = BOOKS.findIndex((b) => b.slug === bookSlug);
@@ -71,6 +82,7 @@ export default async function ChapterPage({
       </div>
 
       <div className="mt-8 flex flex-col gap-3 pb-6">
+        {showSessionCta && <ReadingSessionCTA dayIdx={dayIdx} minutes={readingMinutes} mode={sessionMode} />}
         {sessionCardCount > 0 && (
           <ButtonLink href={`/olvasas/${bookSlug}/${chapter}/session`} variant="secondary">
             {sessionCardCount} friss kártya erről a szakaszról
