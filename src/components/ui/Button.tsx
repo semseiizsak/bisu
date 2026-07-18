@@ -1,4 +1,5 @@
 import { type ButtonHTMLAttributes, forwardRef } from "react";
+import Link, { type LinkProps } from "next/link";
 import { cx } from "@/lib/cx";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
@@ -23,16 +24,23 @@ const sizes: Record<Size, string> = {
   lg: "text-lg px-6 py-3.5",
 };
 
+export function buttonClasses(variant: Variant = "primary", size: Size = "md", className?: string) {
+  return cx(base, variants[variant], sizes[size], className);
+}
+
 export const Button = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size }
 >(({ className, variant = "primary", size = "md", ...props }, ref) => {
-  return (
-    <button
-      ref={ref}
-      className={cx(base, variants[variant], sizes[size], className)}
-      {...props}
-    />
-  );
+  return <button ref={ref} className={buttonClasses(variant, size, className)} {...props} />;
 });
 Button.displayName = "Button";
+
+export function ButtonLink({
+  className,
+  variant = "primary",
+  size = "md",
+  ...props
+}: LinkProps & { className?: string; variant?: Variant; size?: Size; children?: React.ReactNode }) {
+  return <Link className={buttonClasses(variant, size, className)} {...props} />;
+}

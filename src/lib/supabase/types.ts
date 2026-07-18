@@ -161,6 +161,7 @@ type SettingsRow = {
   new_cards_per_day: number;
   reading_speed_wpm: number;
   timezone: string;
+  program_start_date: string;
 };
 
 export interface Database {
