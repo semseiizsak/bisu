@@ -6,8 +6,6 @@ import { CardFace } from "@/components/review/CardFace";
 import { RatingButtons } from "@/components/review/RatingButtons";
 import { reviewCard, type FsrsRating } from "@/lib/fsrs/engine";
 import { queuePendingReview, flushPendingReviews } from "@/lib/db/sync";
-import { maybeCreateVariant } from "@/lib/adaptive/apply-variant";
-import { createClient } from "@/lib/supabase/client";
 import type { ReviewCard } from "@/lib/review/types";
 
 interface Props {
@@ -70,7 +68,11 @@ export function ReviewSession({ cards, mode, onComplete }: Props) {
         void (async () => {
           try {
             await flushPendingReviews();
-            await maybeCreateVariant(createClient(), card.id);
+            await fetch("/api/adaptive/variant", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cardId: card.id }),
+            });
           } catch {
             // adaptive variation is a nice-to-have — never block the review flow on it
           }

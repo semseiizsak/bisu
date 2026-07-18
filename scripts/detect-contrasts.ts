@@ -47,6 +47,7 @@ async function main() {
   const newCards: {
     type: string;
     prompt: string;
+    prompt_raw: string;
     answer: string;
     payload: { options: string[] };
     fact_id: number;
@@ -78,6 +79,7 @@ async function main() {
       newCards.push({
         type: "mcq",
         prompt: `Melyik érték igaz: ${entity.name_hu} ${f.fact_key.replace(/_/g, " ")}?`,
+        prompt_raw: `Melyik érték igaz: ${entity.name_hu} ${f.fact_key.replace(/_/g, " ")}?`,
         answer: String(f.numeric_val),
         payload: { options: options.map(String) as string[] },
         fact_id: f.id,

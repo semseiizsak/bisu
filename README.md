@@ -30,6 +30,7 @@ Then seed content:
 npx tsx scripts/import-bible.ts      # Károli 1908 text -> books + verses
 npx tsx scripts/load-seed.ts         # hand-extracted seed facts (data/seed/*.json)
 npx tsx scripts/generate-cards.ts    # deterministic card generation from facts
+npx tsx scripts/polish-prompts.ts    # AI phrasing polish -> grammatical Hungarian prompts
 ```
 
 Run the app:
@@ -53,6 +54,12 @@ npm run dev
   review (never auto-merges).
 - `scripts/generate-cards.ts` — deterministic card generation from
   facts/entities/timeline/genealogy/geo data.
+- `scripts/polish-prompts.ts` — rewrites the naive-template `prompt` text
+  into grammatically correct Hungarian via OpenAI, preserving
+  `answer`/`distractors`/`payload` untouched. Idempotent/resumable via
+  `cards.prompt_polished_at`; safe to rerun after any content pipeline
+  step that adds new `recall`/`reverse`/`numeric`/`mcq` cards. Content
+  isn't considered "done" until this has been run.
 - `/admin/facts` — keyboard-driven review UI for unverified /
   low-confidence facts (j/k navigate, Enter approve, e edit).
 

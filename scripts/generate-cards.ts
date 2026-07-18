@@ -80,6 +80,7 @@ interface VerseRow {
 interface NewCard {
   type: CardType;
   prompt: string;
+  prompt_raw: string;
   answer: string;
   answer_alt: string[];
   distractors: string[];
@@ -138,6 +139,7 @@ async function main() {
     newCards.push({
       type: "recall",
       prompt: `Mi volt ${entity.name_hu} ${humanizeKey(f.fact_key)}?`,
+      prompt_raw: `Mi volt ${entity.name_hu} ${humanizeKey(f.fact_key)}?`,
       answer: f.fact_value,
       answer_alt: f.numeric_val != null ? [String(f.numeric_val)] : [],
       distractors: [],
@@ -165,6 +167,7 @@ async function main() {
     newCards.push({
       type: "reverse",
       prompt: `Kinek/minek volt ${f.fact_value} a(z) ${humanizeKey(f.fact_key)}?`,
+      prompt_raw: `Kinek/minek volt ${f.fact_value} a(z) ${humanizeKey(f.fact_key)}?`,
       answer: entity.name_hu,
       answer_alt: [],
       distractors: [],
@@ -190,6 +193,7 @@ async function main() {
     newCards.push({
       type: "numeric",
       prompt: `Hány ${f.unit ?? ""}? ${entity.name_hu} — ${humanizeKey(f.fact_key)}`.trim(),
+      prompt_raw: `Hány ${f.unit ?? ""}? ${entity.name_hu} — ${humanizeKey(f.fact_key)}`.trim(),
       answer: String(f.numeric_val),
       answer_alt: [],
       distractors: [],
@@ -249,6 +253,7 @@ async function main() {
     newCards.push({
       type: "mcq",
       prompt: `Mi volt ${entity.name_hu} ${humanizeKey(f.fact_key)}?`,
+      prompt_raw: `Mi volt ${entity.name_hu} ${humanizeKey(f.fact_key)}?`,
       answer: f.numeric_val != null ? String(f.numeric_val) : f.fact_value,
       answer_alt: [],
       distractors: options.filter((o) => o !== (f.numeric_val != null ? String(f.numeric_val) : f.fact_value)),
@@ -288,6 +293,7 @@ async function main() {
       newCards.push({
         type: "cloze",
         prompt: masked,
+        prompt_raw: masked,
         answer: entity.name_hu,
         answer_alt: [],
         distractors: [],
@@ -316,6 +322,7 @@ async function main() {
     newCards.push({
       type: "locate",
       prompt: v.text,
+      prompt_raw: v.text,
       answer: `${book.short_hu} ${v.chapter}`,
       answer_alt: [],
       distractors: [],
@@ -347,6 +354,7 @@ async function main() {
       newCards.push({
         type: "order",
         prompt: `Állítsd időrendbe (${era})`,
+        prompt_raw: `Állítsd időrendbe (${era})`,
         answer: chunk.map((e) => e.id).join(","),
         answer_alt: [],
         distractors: [],
@@ -372,6 +380,7 @@ async function main() {
     newCards.push({
       type: "chain",
       prompt: `Ki volt ${child.name_hu} apja/anyja (${edge.line} vonal)?`,
+      prompt_raw: `Ki volt ${child.name_hu} apja/anyja (${edge.line} vonal)?`,
       answer: parent.name_hu,
       answer_alt: [],
       distractors: [],
@@ -395,6 +404,7 @@ async function main() {
     newCards.push({
       type: "map",
       prompt: `Mutasd meg a térképen: ${entity.name_hu}`,
+      prompt_raw: `Mutasd meg a térképen: ${entity.name_hu}`,
       answer: entity.name_hu,
       answer_alt: [],
       distractors: [],

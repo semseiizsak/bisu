@@ -1,8 +1,6 @@
 import { useCallback, useRef } from "react";
 import { reviewCard, type FsrsRating, type PersistedCardState } from "@/lib/fsrs/engine";
 import { queuePendingReview, flushPendingReviews } from "@/lib/db/sync";
-import { maybeCreateVariant } from "@/lib/adaptive/apply-variant";
-import { createClient } from "@/lib/supabase/client";
 
 /** Shared FSRS-write helper for game modes — every game answer counts as a real review. */
 export function useGameScore(mode: string) {
@@ -37,7 +35,11 @@ export function useGameScore(mode: string) {
         void (async () => {
           try {
             await flushPendingReviews();
-            await maybeCreateVariant(createClient(), cardId);
+            await fetch("/api/adaptive/variant", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cardId }),
+            });
           } catch {
             // adaptive variation is a nice-to-have — never block gameplay on it
           }

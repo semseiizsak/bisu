@@ -1,10 +1,15 @@
+import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import OpenAI from "openai";
 import type { Database } from "@/lib/supabase/types";
 import type { CardType } from "@/lib/content/difficulty";
 import { nextVariantType, isEasyStreak } from "@/lib/adaptive/variant";
 import { buildVariantCard } from "@/lib/adaptive/generate-variant";
+import { polishBatch, type PolishItem } from "@/lib/adaptive/polish-prompt";
 
 type DB = SupabaseClient<Database>;
+
+const POLISHABLE_TYPES = new Set<CardType>(["recall", "reverse", "numeric", "mcq"]);
 
 /**
  * Call after every review submission. If this card just hit 3 consecutive
@@ -37,11 +42,36 @@ export async function maybeCreateVariant(db: DB, cardId: number): Promise<void> 
     .maybeSingle();
   if (!originalState) return;
 
+  let polishedPrompt: string | null = null;
+  if (POLISHABLE_TYPES.has(draft.type) && process.env.OPENAI_API_KEY) {
+    try {
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const item: PolishItem = {
+        cardId: 0, // placeholder id — this is a single-item batch, never persisted
+        cardType: draft.type as PolishItem["cardType"],
+        entityName: draft.entityName,
+        entityType: draft.entityType,
+        factKey: draft.factKey,
+        factValue: draft.factValue,
+        unit: draft.unit,
+        isContrast: false,
+        answer: draft.answer,
+        answerAlt: draft.answer_alt,
+      };
+      const resultMap = await polishBatch(openai, [item]);
+      polishedPrompt = resultMap.get(0) ?? null;
+    } catch {
+      // AI polish is a nice-to-have — fall back to the raw template below
+    }
+  }
+
   const { data: newCard, error: insertError } = await db
     .from("cards")
     .insert({
       type: draft.type,
-      prompt: draft.prompt,
+      prompt: polishedPrompt ?? draft.prompt,
+      prompt_raw: draft.prompt,
+      prompt_polished_at: polishedPrompt ? new Date().toISOString() : null,
       answer: draft.answer,
       answer_alt: draft.answer_alt,
       distractors: draft.distractors,

@@ -21,6 +21,12 @@ export interface VariantCardDraft {
   chapter: number | null;
   verse_ref: string;
   difficulty: number;
+  // Extra context (not written to the DB) so callers can polish `prompt` without a second round-trip.
+  entityName: string;
+  entityType: string;
+  factKey: string;
+  factValue: string;
+  unit: string | null;
 }
 
 /** Builds the next-type reformulation of a fact for the adaptive layer (section 10.1). Runs client-side, hitting only read-open content tables. */
@@ -57,6 +63,11 @@ export async function buildVariantCard(
     chapter: fact.chapter,
     verse_ref: fact.verse_ref,
     difficulty,
+    entityName: entity.name_hu,
+    entityType: entity.type,
+    factKey: fact.fact_key,
+    factValue: fact.fact_value,
+    unit: fact.unit,
   };
 
   if (targetType === "recall") {

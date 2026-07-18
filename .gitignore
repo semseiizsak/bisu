@@ -49,4 +49,6 @@ next-env.d.ts
 
 # data pipeline scratch (large raw dumps, not committed)
 /data/raw/
+/data/extracted/
+/data/polished/
 

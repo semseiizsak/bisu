@@ -81,6 +81,8 @@ type CardsRow = {
   id: number;
   type: string;
   prompt: string;
+  prompt_raw: string | null;
+  prompt_polished_at: string | null;
   answer: string;
   answer_alt: string[];
   distractors: string[];
