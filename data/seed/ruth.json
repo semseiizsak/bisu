@@ -1,0 +1,69 @@
+{
+  "book_slug": "ruth",
+  "chapters": [1, 4],
+  "entities": [
+    { "type": "person", "name_hu": "Elimélek", "aliases": [], "summary": "Júda Bethleheméből való efratai férfi, Naómi férje, éhség idején Moábba költözött, ott meghalt.", "first_ref": "Ruth 1:2", "importance": 3 },
+    { "type": "person", "name_hu": "Naómi", "aliases": ["Mára"], "summary": "Elimélek felesége, keserűségében Márának nevezte magát; Ruth napaasszonya.", "first_ref": "Ruth 1:2", "importance": 4 },
+    { "type": "person", "name_hu": "Mahlon", "aliases": [], "summary": "Elimélek és Naómi egyik fia, Ruth első férje, Moábban halt meg.", "first_ref": "Ruth 1:2", "importance": 2 },
+    { "type": "person", "name_hu": "Kiljon", "aliases": [], "summary": "Elimélek és Naómi másik fia, Orpa férje, Moábban halt meg.", "first_ref": "Ruth 1:2", "importance": 2 },
+    { "type": "person", "name_hu": "Orpa", "aliases": [], "summary": "Moábita asszony, Kiljon felesége, Naómival tartott az útján, majd visszatért népéhez.", "first_ref": "Ruth 1:4", "importance": 2 },
+    { "type": "person", "name_hu": "Ruth", "aliases": [], "summary": "Moábita asszony, Mahlon özvegye, ragaszkodott Naómihoz, később Boáz felesége lett, Dávid dédnagyanyja.", "first_ref": "Ruth 1:4", "importance": 5 },
+    { "type": "person", "name_hu": "Boáz", "aliases": [], "summary": "Előkelő, derék ember Elimélek nemzetségéből, megváltotta a földet és feleségül vette Ruthot.", "first_ref": "Ruth 2:1", "importance": 4 },
+    { "type": "person", "name_hu": "Obed", "aliases": [], "summary": "Boáz és Ruth fia, Isai apja, Dávid nagyapja.", "first_ref": "Ruth 4:17", "importance": 3 },
+    { "type": "person", "name_hu": "Isai", "aliases": ["Jesse"], "summary": "Obed fia, Dávid király apja.", "first_ref": "Ruth 4:17", "importance": 3 },
+    { "type": "person", "name_hu": "Dávid", "aliases": ["Dávid király"], "summary": "Isai fia, Obed unokája, Ruth és Boáz dédunokája; Izráel későbbi királya.", "first_ref": "Ruth 4:22", "importance": 5 },
+    { "type": "place", "name_hu": "Bethlehem", "aliases": ["Júda Bethleheme"], "summary": "Elimélek és családjának szülővárosa Júdában, Naómi és Ruth ide tért vissza.", "first_ref": "Ruth 1:1", "importance": 4 },
+    { "type": "place", "name_hu": "Moáb mezeje", "aliases": ["Moáb"], "summary": "A terület, ahová Elimélek családja az éhség idején költözött.", "first_ref": "Ruth 1:1", "importance": 3 },
+    { "type": "measurement", "name_hu": "Ruth kalászolásának mennyisége", "aliases": [], "summary": "Az első napon Ruth által szedegetett és kicsépelt árpa mennyisége.", "first_ref": "Ruth 2:17", "importance": 1 },
+    { "type": "object", "name_hu": "Sarulevétel szokása", "aliases": ["saru"], "summary": "A megváltás és cserélés megerősítésének izráeli szokása: a férfi lehúzta saruját és felebarátjának adta.", "first_ref": "Ruth 4:7", "importance": 2 }
+  ],
+  "facts": [
+    { "entity_name": "Elimélek", "fact_key": "származási_helye", "fact_value": "Júda Bethleheme", "verse_ref": "Ruth 1:2", "difficulty": 2, "confidence": 1.0 },
+    { "entity_name": "Elimélek", "fact_key": "felesége", "fact_value": "Naómi", "verse_ref": "Ruth 1:2", "difficulty": 1, "confidence": 1.0 },
+    { "entity_name": "Elimélek", "fact_key": "fiai", "fact_value": "Mahlon és Kiljon", "verse_ref": "Ruth 1:2", "difficulty": 2, "confidence": 1.0 },
+    { "entity_name": "Naómi", "fact_key": "másik_neve", "fact_value": "Mára", "verse_ref": "Ruth 1:20", "difficulty": 2, "confidence": 1.0 },
+    { "entity_name": "Naómi", "fact_key": "másik_nevének_jelentése", "fact_value": "mert nagy keserűséggel illette őt a Mindenható", "verse_ref": "Ruth 1:20", "difficulty": 3, "confidence": 1.0 },
+    { "entity_name": "Naómi", "fact_key": "moábban_töltött_évek_száma", "fact_value": "közel 10 esztendő", "numeric_val": 10, "unit": "év", "verse_ref": "Ruth 1:4", "difficulty": 3, "confidence": 0.9 },
+    { "entity_name": "Naómi", "fact_key": "rokona", "fact_value": "Boáz, Elimélek nemzetségéből", "verse_ref": "Ruth 2:1", "difficulty": 2, "confidence": 1.0 },
+    { "entity_name": "Mahlon", "fact_key": "felesége", "fact_value": "Ruth", "verse_ref": "Ruth 4:10", "difficulty": 1, "confidence": 1.0 },
+    { "entity_name": "Kiljon", "fact_key": "felesége", "fact_value": "Orpa", "verse_ref": "Ruth 1:4", "difficulty": 2, "confidence": 0.85 },
+    { "entity_name": "Orpa", "fact_key": "döntése", "fact_value": "visszatért népéhez és isteneihez", "verse_ref": "Ruth 1:15", "difficulty": 2, "confidence": 1.0 },
+    { "entity_name": "Ruth", "fact_key": "származása", "fact_value": "moábita", "verse_ref": "Ruth 1:4", "difficulty": 1, "confidence": 1.0 },
+    { "entity_name": "Ruth", "fact_key": "első_férje", "fact_value": "Mahlon", "verse_ref": "Ruth 4:10", "difficulty": 2, "confidence": 1.0 },
+    { "entity_name": "Ruth", "fact_key": "második_férje", "fact_value": "Boáz", "verse_ref": "Ruth 4:13", "difficulty": 1, "confidence": 1.0 },
+    { "entity_name": "Ruth", "fact_key": "híres_mondása", "fact_value": "A hova te mégy, oda megyek, néped az én népem, és Istened az én Istenem", "verse_ref": "Ruth 1:16", "difficulty": 3, "confidence": 1.0 },
+    { "entity_name": "Ruth", "fact_key": "fia", "fact_value": "Obed", "verse_ref": "Ruth 4:13", "difficulty": 2, "confidence": 1.0 },
+    { "entity_name": "Ruth kalászolásának mennyisége", "fact_key": "mennyiség", "fact_value": "mintegy egy efa árpa", "unit": "efa", "verse_ref": "Ruth 2:17", "difficulty": 4, "confidence": 0.9 },
+    { "entity_name": "Boáz", "fact_key": "rokoni_kapcsolata", "fact_value": "Elimélek nemzetségéből való, közeli rokon", "verse_ref": "Ruth 2:1", "difficulty": 2, "confidence": 1.0 },
+    { "entity_name": "Boáz", "fact_key": "árpa_ajándéka_ruthnak", "fact_value": "hat mérték árpa", "numeric_val": 6, "unit": "mérték", "verse_ref": "Ruth 3:15", "difficulty": 3, "confidence": 1.0 },
+    { "entity_name": "Boáz", "fact_key": "tanúk_száma_a_kapuban", "fact_value": "10 vén férfi", "numeric_val": 10, "unit": "fő", "verse_ref": "Ruth 4:2", "difficulty": 3, "confidence": 1.0 },
+    { "entity_name": "Boáz", "fact_key": "felesége", "fact_value": "Ruth", "verse_ref": "Ruth 4:13", "difficulty": 1, "confidence": 1.0 },
+    { "entity_name": "Boáz", "fact_key": "fia", "fact_value": "Obed", "verse_ref": "Ruth 4:17", "difficulty": 2, "confidence": 1.0 },
+    { "entity_name": "Sarulevétel szokása", "fact_key": "jelentése", "fact_value": "a megváltás és cserélés bizonysága volt Izráelben", "verse_ref": "Ruth 4:7", "difficulty": 3, "confidence": 1.0 },
+    { "entity_name": "Obed", "fact_key": "apja", "fact_value": "Boáz", "verse_ref": "Ruth 4:21", "difficulty": 1, "confidence": 1.0 },
+    { "entity_name": "Obed", "fact_key": "anyja", "fact_value": "Ruth", "verse_ref": "Ruth 4:13", "difficulty": 1, "confidence": 1.0 },
+    { "entity_name": "Obed", "fact_key": "fia", "fact_value": "Isai", "verse_ref": "Ruth 4:22", "difficulty": 2, "confidence": 1.0 },
+    { "entity_name": "Isai", "fact_key": "fia", "fact_value": "Dávid", "verse_ref": "Ruth 4:22", "difficulty": 1, "confidence": 1.0 },
+    { "entity_name": "Bethlehem", "fact_key": "másik_neve_ekkor", "fact_value": "Efrata", "verse_ref": "Ruth 4:11", "difficulty": 3, "confidence": 0.85 },
+    { "entity_name": "Bethlehem", "fact_key": "megérkezés_időszaka", "fact_value": "az árpaaratás kezdetén", "verse_ref": "Ruth 1:22", "difficulty": 2, "confidence": 1.0 }
+  ],
+  "timeline_events": [
+    { "label_hu": "Elimélek családja Moábba költözik az éhség miatt", "era": "bírák", "order_idx": 1, "approx_year": null, "verse_ref": "Ruth 1:1", "importance": 3 },
+    { "label_hu": "Elimélek, majd Mahlon és Kiljon halála Moábban", "era": "bírák", "order_idx": 2, "approx_year": null, "verse_ref": "Ruth 1:3", "importance": 2 },
+    { "label_hu": "Naómi és Ruth visszatérnek Bethlehembe", "era": "bírák", "order_idx": 3, "approx_year": null, "verse_ref": "Ruth 1:19", "importance": 3 },
+    { "label_hu": "Ruth Boáz mezején kalászol", "era": "bírák", "order_idx": 4, "approx_year": null, "verse_ref": "Ruth 2:3", "importance": 2 },
+    { "label_hu": "Boáz megváltja a földet és feleségül veszi Ruthot", "era": "bírák", "order_idx": 5, "approx_year": null, "verse_ref": "Ruth 4:13", "importance": 4 },
+    { "label_hu": "Obed születése — Dávid nagyapja", "era": "bírák", "order_idx": 6, "approx_year": null, "verse_ref": "Ruth 4:17", "importance": 4 }
+  ],
+  "genealogy_edges": [
+    { "parent": "Elimélek", "child": "Mahlon", "line": "elimélek", "verse_ref": "Ruth 1:2" },
+    { "parent": "Elimélek", "child": "Kiljon", "line": "elimélek", "verse_ref": "Ruth 1:2" },
+    { "parent": "Boáz", "child": "Obed", "line": "dávid", "verse_ref": "Ruth 4:21" },
+    { "parent": "Obed", "child": "Isai", "line": "dávid", "verse_ref": "Ruth 4:22" },
+    { "parent": "Isai", "child": "Dávid", "line": "dávid", "verse_ref": "Ruth 4:22" }
+  ],
+  "geo_places": [
+    { "entity_name": "Bethlehem", "svg_x": 560, "svg_y": 430, "place_type": "city", "tolerance": 20 },
+    { "entity_name": "Moáb mezeje", "svg_x": 585, "svg_y": 445, "place_type": "region", "tolerance": 30 }
+  ]
+}
