@@ -1,17 +1,17 @@
 /**
  * Full-corpus entity/fact extraction (Phase 1, section 4.2 of the handoff).
- * Runs one Claude call per chapter (1189 total), 5-way concurrent, writes raw
+ * Runs one OpenAI call per chapter (1189 total), 5-way concurrent, writes raw
  * JSON to data/extracted/{book}-{chapter}.json before touching the DB so the
  * run is resumable and re-runnable.
  *
- * Requires ANTHROPIC_API_KEY in .env.local. Not run automatically — this is
+ * Requires OPENAI_API_KEY in .env.local. Not run automatically — this is
  * a deliberate, costly, long batch job the operator kicks off by hand:
  *
  *   npx tsx scripts/extract-facts.ts
  *   npx tsx scripts/extract-facts.ts --book genesis          # single book
  *   npx tsx scripts/extract-facts.ts --load                  # load already-extracted JSON into the DB
  */
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import pLimit from "p-limit";
 import { config } from "dotenv";
 import { mkdir, readFile, writeFile, readdir } from "node:fs/promises";
@@ -21,7 +21,7 @@ import { supabaseAdmin } from "./lib/supabase-admin";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 
-const MODEL = "claude-sonnet-4-6";
+const MODEL = "gpt-4o-mini"; // cost-efficient, JSON-mode capable — swap here if you want a different model
 const CONCURRENCY = 5;
 const OUT_DIR = resolve(process.cwd(), "data/extracted");
 
@@ -51,33 +51,32 @@ interface ExtractedChapter {
 }
 
 async function extractChapter(
-  anthropic: Anthropic,
+  openai: OpenAI,
   bookShort: string,
   bookName: string,
   chapter: number,
   verses: { verse: number; text: string }[],
 ): Promise<ExtractedChapter> {
   const versesText = verses.map((v) => `${v.verse} ${v.text}`).join("\n");
-  const message = await anthropic.messages.create({
+  const completion = await openai.chat.completions.create({
     model: MODEL,
-    max_tokens: 4096,
-    system: SYSTEM_PROMPT,
+    response_format: { type: "json_object" },
     messages: [
+      { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
         content: `Könyv: ${bookName} (${bookShort}) ${chapter}. fejezet\n\n${versesText}\n\nSéma:\n${RESPONSE_SCHEMA}`,
       },
     ],
   });
-  const text = message.content.find((b) => b.type === "text")?.text ?? "{}";
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  return JSON.parse(jsonMatch ? jsonMatch[0] : text);
+  const text = completion.choices[0]?.message?.content ?? "{}";
+  return JSON.parse(text);
 }
 
 async function runExtraction(bookFilter?: string) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY missing in .env.local");
-  const anthropic = new Anthropic({ apiKey });
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY missing in .env.local");
+  const openai = new OpenAI({ apiKey });
 
   const { data: dbBooks, error } = await supabaseAdmin.from("books").select("id, slug, short_hu, name_hu");
   if (error) throw error;
@@ -115,7 +114,7 @@ async function runExtraction(bookFilter?: string) {
           // not cached yet
         }
         console.log(`extracting: ${book.slug} ${chapter}`);
-        const result = await extractChapter(anthropic, book.short_hu, book.name_hu, chapter, chVerses);
+        const result = await extractChapter(openai, book.short_hu, book.name_hu, chapter, chVerses);
         await writeFile(outPath, JSON.stringify(result, null, 2), "utf-8");
       }),
     );

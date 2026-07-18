@@ -14,7 +14,7 @@ Zustand · Framer Motion.
 
 ```bash
 npm install
-cp .env.local.example .env.local   # fill in Supabase + Anthropic keys
+cp .env.local.example .env.local   # fill in Supabase + OpenAI keys
 ```
 
 Apply the schema once to your Supabase project (SQL Editor, or via the
@@ -43,8 +43,8 @@ npm run dev
 - `scripts/import-bible.ts` — imports the full public-domain Károli 1908
   text (1189 chapters, 31126 verses) from api.getbible.net.
 - `scripts/extract-facts.ts` — full-corpus entity/fact extraction via the
-  Anthropic API (one call per chapter, resumable, writes to
-  `data/extracted/` before touching the DB). Requires `ANTHROPIC_API_KEY`.
+  OpenAI API (one call per chapter, resumable, writes to
+  `data/extracted/` before touching the DB). Requires `OPENAI_API_KEY`.
   This is a deliberate, costly batch job — run by hand, not automatically.
 - `data/seed/*.json` — a hand-extracted seed slice (Genesis 1–11, Ruth)
   loaded via `scripts/load-seed.ts`, so the app is usable end-to-end without
