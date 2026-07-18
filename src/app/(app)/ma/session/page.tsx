@@ -21,6 +21,7 @@ export default async function SessionPage({
     .flatMap((b) => b.items.map((i) => i.card_id));
 
   const cards = await loadReviewCards(supabase, cardIds);
+  const game = plan.blocks.find((b) => b.type === "game")?.game?.game ?? null;
 
   return (
     <main className="mx-auto max-w-md px-4 pt-6">
@@ -28,7 +29,7 @@ export default async function SessionPage({
         ← Vissza
       </Link>
       <div className="mt-4">
-        <SessionRunner cards={cards} />
+        <SessionRunner cards={cards} game={game} />
       </div>
     </main>
   );

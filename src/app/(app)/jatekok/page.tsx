@@ -1,16 +1,6 @@
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-
-const GAMES = [
-  { slug: "locate", name: "Hol vagyok?", desc: "Vers → könyv és fejezet" },
-  { slug: "timeline", name: "Idővonal", desc: "Események időrendbe" },
-  { slug: "numbers", name: "Számháború", desc: "Gyors számkvíz, 60 mp" },
-  { slug: "chain", name: "Genealógia-lánc", desc: "Ki kinek volt az apja?" },
-  { slug: "who-said", name: "Ki mondta?", desc: "Kvíz-kihívás" },
-  { slug: "map", name: "Térkép", desc: "Koppints a helyes pontra" },
-  { slug: "build", name: "Építsd fel", desc: "Méretek kitöltése" },
-  { slug: "boss", name: "Boss fight", desc: "40 kérdés, egy könyv, időre" },
-] as const;
+import { GAMES } from "@/lib/content/games";
 
 export default function GamesPage() {
   return (

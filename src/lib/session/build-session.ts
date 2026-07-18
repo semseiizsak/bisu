@@ -93,10 +93,14 @@ export async function buildSessionPlan(db: DB, now: Date = new Date(), mode: Ses
   }
 
   // 2. DUE REVIEW (55% of remaining) ---------------------------------------
+  // state=0 means "never studied" — those cards get due_at set to their
+  // creation time, so without this filter they'd flood in here instead of
+  // being paced through the NEW CARDS block below via new_cards_per_day.
   const { data: dueRows } = await db
     .from("card_states")
     .select("card_id, stability, lapses, due_at, state, cards!inner(type, entity_id, entities(importance))")
     .lte("due_at", now.toISOString())
+    .gt("state", 0)
     .eq("suspended", false)
     .order("due_at", { ascending: true })
     .limit(400);
