@@ -50,6 +50,10 @@ export function CardFace({ card, revealed, onReveal }: Props) {
   }
 
   const isTextType = ["recall", "reverse", "chain", "cloze", "locate"].includes(card.type);
+  // Long answers (full verse text etc.) are unreasonable to force exact retyping of —
+  // reveal and let the learner self-grade instead, like the non-text card types do.
+  const isLongAnswer = card.answer.length > 24;
+  const requiresTyping = isTextType && !isLongAnswer;
 
   return (
     <div className="flex flex-col gap-5">
@@ -87,7 +91,7 @@ export function CardFace({ card, revealed, onReveal }: Props) {
         </form>
       )}
 
-      {!revealed && isTextType && !nearMiss && (
+      {!revealed && requiresTyping && !nearMiss && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -116,7 +120,7 @@ export function CardFace({ card, revealed, onReveal }: Props) {
         </div>
       )}
 
-      {!revealed && !isTextType && card.type !== "mcq" && card.type !== "numeric" && (
+      {!revealed && !requiresTyping && card.type !== "mcq" && card.type !== "numeric" && (
         <Button variant="secondary" onClick={() => onReveal(null)}>
           Válasz felfedése (Space)
         </Button>

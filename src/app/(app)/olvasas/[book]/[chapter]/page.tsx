@@ -22,14 +22,19 @@ export default async function ChapterPage({
   ]);
   if (!book) notFound();
 
-  const { data: verses } = await supabase
-    .from("verses")
-    .select("verse, text")
-    .eq("book_id", book.id)
-    .eq("chapter", chapter)
-    .order("verse");
+  const [{ data: verses }, { count: cardCount }] = await Promise.all([
+    supabase.from("verses").select("verse, text").eq("book_id", book.id).eq("chapter", chapter).order("verse"),
+    supabase
+      .from("cards")
+      .select("id", { count: "exact", head: true })
+      .eq("book_id", book.id)
+      .eq("chapter", chapter)
+      .eq("active", true),
+  ]);
 
   if (!verses || verses.length === 0) notFound();
+
+  const sessionCardCount = Math.min(10, cardCount ?? 0);
 
   const chaptersCountBySlug = new Map((allBooks ?? []).map((b) => [b.slug, b.chapters_count]));
   const bookIdxInOrder = BOOKS.findIndex((b) => b.slug === bookSlug);
@@ -66,9 +71,11 @@ export default async function ChapterPage({
       </div>
 
       <div className="mt-8 flex flex-col gap-3 pb-6">
-        <ButtonLink href={`/olvasas/${bookSlug}/${chapter}/session`} variant="secondary">
-          10 friss kártya erről a szakaszról
-        </ButtonLink>
+        {sessionCardCount > 0 && (
+          <ButtonLink href={`/olvasas/${bookSlug}/${chapter}/session`} variant="secondary">
+            {sessionCardCount} friss kártya erről a szakaszról
+          </ButtonLink>
+        )}
         <div className="flex justify-between">
           {prev ? (
             <ButtonLink variant="ghost" size="sm" href={`/olvasas/${prev.book}/${prev.chapter}`}>
