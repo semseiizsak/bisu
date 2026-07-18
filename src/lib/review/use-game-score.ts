@@ -1,6 +1,8 @@
 import { useCallback, useRef } from "react";
 import { reviewCard, type FsrsRating, type PersistedCardState } from "@/lib/fsrs/engine";
-import { queuePendingReview } from "@/lib/db/sync";
+import { queuePendingReview, flushPendingReviews } from "@/lib/db/sync";
+import { maybeCreateVariant } from "@/lib/adaptive/apply-variant";
+import { createClient } from "@/lib/supabase/client";
 
 /** Shared FSRS-write helper for game modes — every game answer counts as a real review. */
 export function useGameScore(mode: string) {
@@ -30,6 +32,17 @@ export function useGameScore(mode: string) {
         new_lapses: next.lapses,
       });
       startedAt.current = Date.now();
+
+      if (rating === 4 && typeof navigator !== "undefined" && navigator.onLine) {
+        void (async () => {
+          try {
+            await flushPendingReviews();
+            await maybeCreateVariant(createClient(), cardId);
+          } catch {
+            // adaptive variation is a nice-to-have — never block gameplay on it
+          }
+        })();
+      }
     },
     [mode],
   );

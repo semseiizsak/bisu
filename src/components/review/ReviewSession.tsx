@@ -5,7 +5,9 @@ import { motion, useAnimation } from "framer-motion";
 import { CardFace } from "@/components/review/CardFace";
 import { RatingButtons } from "@/components/review/RatingButtons";
 import { reviewCard, type FsrsRating } from "@/lib/fsrs/engine";
-import { queuePendingReview } from "@/lib/db/sync";
+import { queuePendingReview, flushPendingReviews } from "@/lib/db/sync";
+import { maybeCreateVariant } from "@/lib/adaptive/apply-variant";
+import { createClient } from "@/lib/supabase/client";
 import type { ReviewCard } from "@/lib/review/types";
 
 interface Props {
@@ -63,6 +65,17 @@ export function ReviewSession({ cards, mode, onComplete }: Props) {
         new_reps: next.reps,
         new_lapses: next.lapses,
       });
+
+      if (rating === 4 && typeof navigator !== "undefined" && navigator.onLine) {
+        void (async () => {
+          try {
+            await flushPendingReviews();
+            await maybeCreateVariant(createClient(), card.id);
+          } catch {
+            // adaptive variation is a nice-to-have — never block the review flow on it
+          }
+        })();
+      }
 
       controls.set({ x: 0, opacity: 1 });
       if (index + 1 >= cards.length) {
