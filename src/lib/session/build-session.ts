@@ -4,16 +4,11 @@ import type { CardType } from "@/lib/content/difficulty";
 import { estimateCardMinutes, estimateReadingMinutes } from "@/lib/session/time-estimates";
 import { BOOKS } from "@/lib/content/books";
 import type { SessionBlock, SessionPlan, SessionMode } from "@/lib/session/types";
+import { dayIndexForDate } from "@/lib/session/day-index";
 
 type DB = SupabaseClient<Database>;
 
 const GAME_ROTATION = ["locate", "timeline", "numbers", "chain", "who-said", "map", "boss"] as const;
-
-function dayIndexForDate(programStart: string, today: Date): number {
-  const start = new Date(programStart + "T00:00:00");
-  const diffDays = Math.floor((today.getTime() - start.getTime()) / 86_400_000);
-  return Math.min(365, Math.max(1, diffDays + 1));
-}
 
 async function verseCountForSegments(
   db: DB,

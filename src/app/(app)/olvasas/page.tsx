@@ -1,12 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-
-function dayIndexForDate(programStart: string, today: Date): number {
-  const start = new Date(programStart + "T00:00:00");
-  const diffDays = Math.floor((today.getTime() - start.getTime()) / 86_400_000);
-  return Math.min(365, Math.max(1, diffDays + 1));
-}
+import { dayIndexForDate } from "@/lib/session/day-index";
 
 export default async function ReadingPage() {
   const supabase = await createClient();
