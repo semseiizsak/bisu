@@ -37,7 +37,7 @@ export default async function TodayPage() {
 
   function sessionHref(mode: "full" | "short") {
     if (readingPending && readingBlock?.reading) {
-      return `/olvasas/${readingBlock.reading.book_slug}/${readingBlock.reading.ch_from}?next=session&mode=${mode}`;
+      return `/olvasas/${readingBlock.reading.book_slug}/${readingBlock.reading.ch_from}?flow=daily&mode=${mode}`;
     }
     return `/ma/session?mode=${mode}`;
   }

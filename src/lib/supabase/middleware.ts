@@ -2,8 +2,22 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login"];
+const CANONICAL_HOST = "bisu-six.vercel.app";
 
 export async function updateSession(request: NextRequest) {
+  // Every Vercel deployment stays reachable forever at its own immutable
+  // *.vercel.app URL — a bookmark/home-screen icon pointing at one serves a
+  // frozen old build eternally. Bounce every non-canonical vercel.app host
+  // to the production domain so those stale entry points self-heal.
+  const host = request.headers.get("host") ?? "";
+  if (host.endsWith(".vercel.app") && host !== CANONICAL_HOST) {
+    const url = request.nextUrl.clone();
+    url.host = CANONICAL_HOST;
+    url.port = "";
+    url.protocol = "https";
+    return NextResponse.redirect(url, 308);
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
