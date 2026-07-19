@@ -115,7 +115,7 @@ export function BossFightGame({ books }: { books: BookOption[] }) {
       </div>
       <div className="mt-2 rounded-lg border border-line bg-surface p-6 text-center text-lg text-ink">{item.prompt}</div>
       <div className="mt-4 grid grid-cols-1 gap-2">
-        {item.options.map((opt) => {
+        {Array.from(new Set(item.options)).map((opt) => {
           const isCorrect = picked && opt === item.answer;
           const isWrongPick = picked === opt && opt !== item.answer;
           return (

@@ -63,7 +63,7 @@ export function CardFace({ card, revealed, onReveal }: Props) {
 
       {!revealed && card.type === "mcq" && (
         <div className="grid grid-cols-1 gap-2">
-          {((card.payload as McqPayload)?.options ?? []).map((opt) => (
+          {Array.from(new Set((card.payload as McqPayload)?.options ?? [])).map((opt) => (
             <Button key={opt} variant="secondary" onClick={() => pickOption(opt)}>
               {opt}
             </Button>

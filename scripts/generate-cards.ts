@@ -228,6 +228,18 @@ async function main() {
     }
   }
 
+  // Same-book entity pools: an MCQ about a Genesis genealogy must not offer
+  // characters from another book as distractors — they're trivially wrong.
+  const mcqEntitiesByBook = new Map<number, EntityRow[]>();
+  for (const f of factRows) {
+    if (f.book_id == null || f.entity_id == null) continue;
+    const e = entityById.get(f.entity_id);
+    if (!e) continue;
+    if (!mcqEntitiesByBook.has(f.book_id)) mcqEntitiesByBook.set(f.book_id, []);
+    const pool = mcqEntitiesByBook.get(f.book_id)!;
+    if (!pool.some((p) => p.id === e.id)) pool.push(e);
+  }
+
   let mcqSeed = 1;
   for (const f of factRows) {
     if (existingKey.has(`${f.id}:mcq`)) continue;
@@ -241,12 +253,15 @@ async function main() {
       const distractors = numericDistractors(f.numeric_val, pool, mcqSeed);
       options = [String(f.numeric_val), ...distractors.map(String)];
     } else if (entity.type === "person" || entity.type === "place") {
-      const distractors = entityDistractors(entity, entityList, genealogyByEntity.get(entity.id), mcqSeed);
+      const sameBookPool = mcqEntitiesByBook.get(f.book_id ?? -1) ?? [];
+      const pool = sameBookPool.length >= 8 ? sameBookPool : entityList;
+      const distractors = entityDistractors(entity, pool, genealogyByEntity.get(entity.id), mcqSeed, [f.fact_value]);
       if (distractors.length < 3) continue;
       options = [f.fact_value, ...distractors.map((d) => d.name_hu)];
     } else {
       continue;
     }
+    if (new Set(options.map((o) => o.trim().toLowerCase())).size < 4) continue;
     options = shuffleDeterministic(options, mcqSeed);
     const payload: McqPayload = { options };
 
