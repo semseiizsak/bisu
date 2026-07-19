@@ -157,10 +157,16 @@ async function main() {
 
   // --- reverse (numeric or short relational facts) ---------------------
   const RELATIONAL_KEYS = new Set(["apja", "fia", "felesége", "anyja", "második_férje", "első_férje"]);
+  // Reversal only makes sense when the entity is the natural answer to a
+  // "ki/melyik" question — persons, places, objects. Event-scoped stats
+  // ("during the Flood, doves were released 3 times") invert into nonsense
+  // ("to whom was 3 the number of dove releases?" → "the Flood").
+  const REVERSIBLE_ENTITY_TYPES = new Set(["person", "place", "object"]);
   for (const f of factRows) {
     if (existingKey.has(`${f.id}:reverse`)) continue;
     const entity = f.entity_id ? entityById.get(f.entity_id) : undefined;
     if (!entity) continue;
+    if (!REVERSIBLE_ENTITY_TYPES.has(entity.type)) continue;
     const invertible = f.numeric_val != null || RELATIONAL_KEYS.has(f.fact_key);
     if (!invertible) continue;
     if (f.fact_value.length > 40) continue;

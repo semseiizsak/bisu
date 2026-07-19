@@ -42,11 +42,16 @@ Szabályok:
 - Tömör maradj — egy mondat, ne magyarázkodj.
 
 Kártyatípusonkénti KÖTELEZŐ irány:
-- "reverse": a válasz egy személy/hely/dolog NEVE. A kérdés KI / MELYIK /
-  KINEK / MINEK formában kérdezzen rá az entitásra, és a kapott
-  fact_value-t ÉPÍTSD BE a kérdésbe azonosító adatként (pl. fact_key
-  "folyók száma", fact_value "4" → "Melyik helynek volt 4 folyója?").
-  SOHA ne kérdezz rá magára az értékre — az nem a válasz.
+- "reverse": a válasz egy NÉV — az "entity_type" mező mondja meg, miféle,
+  és ehhez KELL igazítanod a kérdőszót:
+    person → "Ki …?" (pl. "Ki volt 130 éves, amikor megszületett az első
+      fia?", "Ki élt 930 évig?")
+    place → "Melyik hely…?" (pl. "Melyik helyen folyt négy folyó?")
+    object → "Melyik építmény/tárgy…?" (pl. "Melyik építmény volt 300 sing
+      hosszú?")
+  A fact_value-t ÉPÍTSD BE a kérdésbe azonosító adatként. TILOS a gépies
+  "Kinek/minek volt X a(z) Y?" szerkezet — úgy fogalmazz, ahogy egy ember
+  kérdezne. SOHA ne kérdezz rá magára az értékre — az nem a válasz.
 - "recall" / "numeric" / "mcq": a válasz az érték. A kérdésben KÖTELEZŐEN
   szerepeljen az entity_name (megfelelő raggal), és az értékre kérdezz rá
   (pl. "Hány éves volt Nóé, amikor…?"). Alany nélküli kérdés érvénytelen.
@@ -55,10 +60,13 @@ Kártyatípusonkénti KÖTELEZŐ irány:
 
 function contextFor(item: PolishItem): Record<string, unknown> {
   if (item.cardType === "reverse") {
-    // The answer for `reverse` cards is the entity name — withhold it.
+    // The answer for `reverse` cards is the entity name — withhold it, but
+    // send the entity TYPE so the model can pick the right interrogative
+    // (ki / melyik hely / melyik építmény) instead of personifying objects.
     return {
       card_id: item.cardId,
       card_type: item.cardType,
+      entity_type: item.entityType,
       raw_template: item.promptRaw,
       fact_key: item.factKey,
       fact_value: item.factValue,
@@ -84,12 +92,27 @@ export function buildPolishMessages(items: PolishItem[]): OpenAI.Chat.ChatComple
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "user",
-      content: `Fogalmazd át ezeket a kérdésváz-objektumokat. A "raw_template" a nyers gépi kérdés — ez ügyetlen megfogalmazású, de az IRÁNYA helyes: ugyanarra kérdez rá, amire neked is kell. Csak fogalmazd át gördülékeny magyarra, az irányát tartsd meg. A "fact_key" a nyers, alávonásokkal tagolt mezőnév (pl. "kora_első_fia_születésekor" = "hány éves volt, amikor megszületett az első fia").\n\n${JSON.stringify(payload, null, 2)}`,
+      content: `Fogalmazd át ezeket a kérdésváz-objektumokat. A "raw_template" a nyers gépi kérdés — csak az IRÁNYA számít (arra kérdez rá, amire neked is kell), a megfogalmazását NE kövesd, az ügyetlen. A "fact_key" a nyers, alávonásokkal tagolt mezőnév (pl. "kora_első_fia_születésekor" = "hány éves volt, amikor megszületett az első fia").\n\n${JSON.stringify(payload, null, 2)}`,
     },
   ];
 }
 
 const NUMERIC_VALUE = /^\d+([.,]\d+)?$/;
+
+/** Diacritic-folded Hungarian numerals for small numbers, so a polished
+ * question may spell the clue out ("négy folyója") instead of using digits. */
+const NUMBER_WORDS: Record<string, string[]> = {
+  "1": ["egy"],
+  "2": ["ket", "ketto"],
+  "3": ["harom"],
+  "4": ["negy"],
+  "5": ["ot"],
+  "6": ["hat"],
+  "7": ["het"],
+  "8": ["nyolc"],
+  "9": ["kilenc"],
+  "10": ["tiz"],
+};
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -129,17 +152,24 @@ export function validatePolishedQuestion(item: PolishItem, question: string): bo
     // The fact value is the identifying clue and must appear in the question —
     // but long compound values ("6 nap alkotás + 1 nap pihenés") can't be
     // required verbatim, so we check the value's core: its leading number
-    // (digit-boundary matched so "4" can't hide in "40"), else its head word.
+    // (digit-boundary matched so "4" can't hide in "40" — or spelled out,
+    // since "négy folyó" is better Hungarian than "4 folyó"), else its head word.
     const value = (item.factValue ?? "").trim();
     const numMatch = value.match(/\d+([.,]\d+)?/);
     if (numMatch) {
       const boundary = new RegExp(`(^|\\D)${escapeRegExp(numMatch[0])}(\\D|$)`);
-      if (!boundary.test(question)) return false;
+      const words = NUMBER_WORDS[numMatch[0]];
+      const asWord = words?.some((w) => new RegExp(`(^|[^a-z])${w}`).test(fold(question)));
+      if (!boundary.test(question) && !asWord) return false;
     } else {
       const headWord = value.split(/\s+/)[0]?.replace(/[^\p{L}\p{N}]/gu, "") ?? "";
       if (headWord.length >= 3 && !fold(question).includes(fold(headWord))) return false;
     }
     if (!NUMERIC_VALUE.test(item.answer.trim()) && /^\s*(hány|mennyi)\b/i.test(question)) return false;
+    // Objects and places must not be personified ("Kinek volt…?" about an ark).
+    if ((item.entityType === "place" || item.entityType === "object") && /^\s*ki(nek|t|é|vel|ről|től|nél)?\b/i.test(question)) {
+      return false;
+    }
     return true;
   }
 
@@ -175,7 +205,9 @@ export function parsePolishResponse(raw: string, items: PolishItem[]): Map<numbe
   return result;
 }
 
-const MODEL = "gpt-4o-mini";
+// The stronger model — phrasing quality is the whole point of this pass,
+// and the corpus is small enough that the cost difference is negligible.
+const MODEL = "gpt-4o";
 
 export async function polishBatch(openai: OpenAI, items: PolishItem[]): Promise<Map<number, string>> {
   if (items.length === 0) return new Map();
