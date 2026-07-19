@@ -6,6 +6,7 @@ import { CardFace } from "@/components/review/CardFace";
 import { RatingButtons } from "@/components/review/RatingButtons";
 import { reviewCard, type FsrsRating } from "@/lib/fsrs/engine";
 import { queuePendingReview, flushPendingReviews } from "@/lib/db/sync";
+import { flagCardNotImportant } from "@/lib/actions/flag-card";
 import type { ReviewCard } from "@/lib/review/types";
 
 interface Props {
@@ -97,6 +98,23 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
     [card, controls, index, cards.length, mode, onComplete, correctCount],
   );
 
+  // "Nem fontos" — retire the card everywhere and move on without a rating.
+  const flagAndSkip = useCallback(() => {
+    if (!card) return;
+    void flagCardNotImportant(card.id).catch(() => {
+      // best-effort: if offline/failed the card simply shows up again later
+    });
+    controls.set({ x: 0, opacity: 1 });
+    if (index + 1 >= cards.length) {
+      setDone(true);
+      onComplete?.({ correct: correctCount, total: cards.length });
+    } else {
+      setIndex((i) => i + 1);
+      setRevealed(false);
+      setSuggested(undefined);
+    }
+  }, [card, controls, index, cards.length, onComplete, correctCount]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (!revealed) {
@@ -159,6 +177,13 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
       </motion.div>
 
       {revealed && <RatingButtons onRate={(r) => void rate(r)} suggested={suggested} />}
+
+      <button
+        onClick={flagAndSkip}
+        className="mx-auto text-xs text-ink-faint underline underline-offset-4 hover:text-ink-muted"
+      >
+        Nem fontos kérdés — elrejtés
+      </button>
     </div>
   );
 }
