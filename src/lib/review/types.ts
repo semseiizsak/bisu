@@ -11,5 +11,6 @@ export interface ReviewCard {
   distractors: string[];
   payload: McqPayload | ClozePayload | LocatePayload | NumericPayload | Record<string, unknown> | null;
   verse_ref: string | null;
+  entity_id: number | null;
   state: PersistedCardState;
 }

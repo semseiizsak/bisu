@@ -11,7 +11,7 @@ export async function loadReviewCards(
   if (!cardIds.length) return [];
 
   const [{ data: cards }, { data: states }] = await Promise.all([
-    db.from("cards").select("id, type, prompt, answer, answer_alt, distractors, payload, verse_ref").in("id", cardIds),
+    db.from("cards").select("id, type, prompt, answer, answer_alt, distractors, payload, verse_ref, entity_id").in("id", cardIds),
     db.from("card_states").select("card_id, stability, difficulty, due_at, last_review, reps, lapses, state").in("card_id", cardIds),
   ]);
 
@@ -30,6 +30,7 @@ export async function loadReviewCards(
         distractors: c.distractors ?? [],
         payload: (c.payload as Record<string, unknown>) ?? null,
         verse_ref: c.verse_ref,
+        entity_id: c.entity_id,
         state: s
           ? {
               stability: s.stability,

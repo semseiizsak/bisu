@@ -12,9 +12,12 @@ interface Props {
   card: ReviewCard;
   revealed: boolean;
   onReveal: (wasCorrect: boolean | null) => void;
+  /** Present a non-mcq card as multiple choice with these options (the
+   * daily session synthesizes them from sibling answers for variety). */
+  mcqOptions?: string[];
 }
 
-export function CardFace({ card, revealed, onReveal }: Props) {
+export function CardFace({ card, revealed, onReveal, mcqOptions }: Props) {
   const [textAnswer, setTextAnswer] = useState("");
   const [nearMiss, setNearMiss] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -53,7 +56,8 @@ export function CardFace({ card, revealed, onReveal }: Props) {
   // Long answers (full verse text etc.) are unreasonable to force exact retyping of —
   // reveal and let the learner self-grade instead, like the non-text card types do.
   const isLongAnswer = card.answer.length > 24;
-  const requiresTyping = isTextType && !isLongAnswer;
+  const asSynthMcq = !!mcqOptions?.length && card.type !== "mcq" && card.type !== "numeric";
+  const requiresTyping = isTextType && !isLongAnswer && !asSynthMcq;
 
   return (
     <div className="flex flex-col gap-5">
@@ -61,9 +65,9 @@ export function CardFace({ card, revealed, onReveal }: Props) {
         <p className="text-lg text-ink leading-relaxed whitespace-pre-line">{card.prompt}</p>
       </div>
 
-      {!revealed && card.type === "mcq" && (
+      {!revealed && (card.type === "mcq" || asSynthMcq) && (
         <div className="grid grid-cols-1 gap-2">
-          {Array.from(new Set((card.payload as McqPayload)?.options ?? [])).map((opt) => (
+          {Array.from(new Set(asSynthMcq ? mcqOptions! : ((card.payload as McqPayload)?.options ?? []))).map((opt) => (
             <Button key={opt} variant="secondary" onClick={() => pickOption(opt)}>
               {opt}
             </Button>
@@ -120,7 +124,7 @@ export function CardFace({ card, revealed, onReveal }: Props) {
         </div>
       )}
 
-      {!revealed && !requiresTyping && card.type !== "mcq" && card.type !== "numeric" && (
+      {!revealed && !requiresTyping && !asSynthMcq && card.type !== "mcq" && card.type !== "numeric" && (
         <Button variant="secondary" onClick={() => onReveal(null)}>
           Válasz felfedése (Space)
         </Button>

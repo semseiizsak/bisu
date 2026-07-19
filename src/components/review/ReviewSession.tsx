@@ -11,10 +11,15 @@ import type { ReviewCard } from "@/lib/review/types";
 interface Props {
   cards: ReviewCard[];
   mode: string; // 'srs' | 'game:*'
-  onComplete?: () => void;
+  onComplete?: (stats: { correct: number; total: number }) => void;
+  /** Hide the built-in "Kész!" screen — the daily session renders its own
+   * breather/summary instead and unmounts this component on completion. */
+  showSummary?: boolean;
+  /** Per-card synthesized MCQ options (daily-session format mixing). */
+  mcqOptionsByCard?: Map<number, string[]>;
 }
 
-export function ReviewSession({ cards, mode, onComplete }: Props) {
+export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcqOptionsByCard }: Props) {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [suggested, setSuggested] = useState<FsrsRating | undefined>(undefined);
@@ -82,14 +87,14 @@ export function ReviewSession({ cards, mode, onComplete }: Props) {
       controls.set({ x: 0, opacity: 1 });
       if (index + 1 >= cards.length) {
         setDone(true);
-        onComplete?.();
+        onComplete?.({ correct: correctCount, total: cards.length });
       } else {
         setIndex((i) => i + 1);
         setRevealed(false);
         setSuggested(undefined);
       }
     },
-    [card, controls, index, cards.length, mode, onComplete],
+    [card, controls, index, cards.length, mode, onComplete, correctCount],
   );
 
   useEffect(() => {
@@ -116,6 +121,7 @@ export function ReviewSession({ cards, mode, onComplete }: Props) {
   }
 
   if (done) {
+    if (!showSummary) return null;
     return (
       <div className="flex flex-col items-center gap-3 py-10 text-center">
         <p className="text-2xl font-extrabold text-ink">Kész!</p>
@@ -149,7 +155,7 @@ export function ReviewSession({ cards, mode, onComplete }: Props) {
           else controls.start({ x: 0 });
         }}
       >
-        <CardFace card={card} revealed={revealed} onReveal={handleReveal} />
+        <CardFace card={card} revealed={revealed} onReveal={handleReveal} mcqOptions={mcqOptionsByCard?.get(card.id)} />
       </motion.div>
 
       {revealed && <RatingButtons onRate={(r) => void rate(r)} suggested={suggested} />}
