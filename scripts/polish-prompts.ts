@@ -37,6 +37,7 @@ const OUT_DIR = resolve(process.cwd(), "data/polished");
 interface CardRow {
   id: number;
   type: string;
+  prompt_raw: string | null;
   answer: string;
   answer_alt: string[];
   tags: string[];
@@ -116,7 +117,7 @@ async function main() {
   console.log("Loading cards that need polish…");
   let query = supabaseAdmin
     .from("cards")
-    .select("id, type, answer, answer_alt, tags, fact_id, facts(fact_key, fact_value, unit), entities(name_hu, type)")
+    .select("id, type, prompt_raw, answer, answer_alt, tags, fact_id, facts(fact_key, fact_value, unit), entities(name_hu, type)")
     .in("type", ["recall", "reverse", "numeric", "mcq"])
     .not("fact_id", "is", null)
     .is("prompt_polished_at", null)
@@ -142,6 +143,7 @@ async function main() {
       factValue: c.facts!.fact_value,
       unit: c.facts!.unit,
       isContrast: (c.tags ?? []).includes("contrast"),
+      promptRaw: c.prompt_raw,
       answer: c.answer,
       answerAlt: c.answer_alt ?? [],
     }));

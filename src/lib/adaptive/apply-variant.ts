@@ -55,6 +55,7 @@ export async function maybeCreateVariant(db: DB, cardId: number): Promise<void> 
         factValue: draft.factValue,
         unit: draft.unit,
         isContrast: false,
+        promptRaw: draft.prompt,
         answer: draft.answer,
         answerAlt: draft.answer_alt,
       };
