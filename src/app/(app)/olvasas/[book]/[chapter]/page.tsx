@@ -47,6 +47,14 @@ export default async function ChapterPage({
   const dayIdx = dayIndexForDate(settings?.program_start_date ?? new Date().toISOString().slice(0, 10), new Date());
   const readingMinutes = Math.max(1, Math.round(estimateReadingMinutes(verses.length)));
 
+  const notesParams = new URLSearchParams();
+  if (showSessionCta) {
+    notesParams.set("next", "session");
+    notesParams.set("mode", sessionMode);
+    notesParams.set("minutes", String(readingMinutes));
+  }
+  const notesHref = `/olvasas/${bookSlug}/${chapter}/notes${notesParams.size ? `?${notesParams}` : ""}`;
+
   const chaptersCountBySlug = new Map((allBooks ?? []).map((b) => [b.slug, b.chapters_count]));
   const bookIdxInOrder = BOOKS.findIndex((b) => b.slug === bookSlug);
 
@@ -82,11 +90,10 @@ export default async function ChapterPage({
       </div>
 
       <div className="mt-8 flex flex-col gap-3 pb-6">
-        {showSessionCta && <ReadingSessionCTA dayIdx={dayIdx} minutes={readingMinutes} mode={sessionMode} />}
-        {sessionCardCount > 0 && (
-          <ButtonLink href={`/olvasas/${bookSlug}/${chapter}/session`} variant="secondary">
-            {sessionCardCount} friss kártya erről a szakaszról
-          </ButtonLink>
+        {sessionCardCount > 0 ? (
+          <ButtonLink href={notesHref}>Jegyzetek megtekintése ({sessionCardCount} kártya)</ButtonLink>
+        ) : (
+          showSessionCta && <ReadingSessionCTA dayIdx={dayIdx} minutes={readingMinutes} mode={sessionMode} />
         )}
         <div className="flex justify-between">
           {prev ? (

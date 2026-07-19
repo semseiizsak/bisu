@@ -23,7 +23,7 @@ export function ReadingSessionCTA({ dayIdx, minutes, mode }: Props) {
 
   return (
     <Button size="lg" onClick={go} disabled={pending}>
-      Kész az olvasással → Ismétlés indítása
+      Készen állok → Ismétlés indítása
     </Button>
   );
 }
