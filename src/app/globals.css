@@ -84,3 +84,26 @@ body {
 ::selection {
   background: color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
+
+/* Boot splash — pure CSS so it animates before any JavaScript loads.
+   (The global prefers-reduced-motion rule above neutralizes these too.) */
+@keyframes splash-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.95);
+    opacity: 0.85;
+  }
+}
+
+@keyframes splash-bar {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(310%);
+  }
+}
