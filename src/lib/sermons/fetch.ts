@@ -45,6 +45,22 @@ function matchesPreacher(item: YoutubeItem, tokens: string[]): boolean {
   return tokens.every((t) => haystack.includes(t));
 }
 
+/** True if the video's title actually seems to be about one of the
+ * chapter's own topics — being from the right preacher is not enough on its
+ * own, since a trusted channel also posts prophecies, conference promos and
+ * organizational announcements that have nothing to do with the reading. Uses
+ * a short prefix match (not full-word) so Hungarian's case suffixes
+ * ("Ábrahámmal", "Ábrahámnak") and spelling variants ("Melkisédek" vs
+ * "melkicedeki") still count as a match. */
+function matchesTopic(item: YoutubeItem, keywords: string[]): boolean {
+  const title = foldDiacritics(item.title);
+  return keywords.some((kw) => {
+    const folded = foldDiacritics(kw);
+    const prefix = folded.slice(0, Math.min(5, folded.length));
+    return prefix.length > 0 && title.includes(prefix);
+  });
+}
+
 const TOPIC_SYSTEM = `Bibliai szakasz fő témáit gyűjtöd ki rövid kulcsszavakban, amiket
 YouTube-keresésre fogunk használni magyar nyelvű bibliai tanításokhoz. A
 kulcsszavak egy keresőmezőbe kerülnek egymás mellé, ezért KRITIKUS, hogy
@@ -224,6 +240,7 @@ export async function getSermonRecs(
       for (const it of items) {
         if (seenVideoIds.has(it.video_id)) continue;
         if (!p.channel_id && !matchesPreacher(it, tokens)) continue;
+        if (!matchesTopic(it, searchKeywords)) continue;
         seenVideoIds.add(it.video_id);
         preacherRecs.push({ ...it, preacher_name: p.name });
         rows.push({
