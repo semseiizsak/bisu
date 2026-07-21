@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { dayIndexForDate } from "@/lib/session/day-index";
+import { SermonRecs } from "@/components/sermons/SermonRecs";
 
 export default async function ReadingPage() {
   const supabase = await createClient();
@@ -59,6 +61,23 @@ export default async function ReadingPage() {
           A mai naphoz még nincs terv. Futtasd a <code>scripts/generate-reading-plan.ts</code> szkriptet.
         </p>
       )}
+
+      {plan?.segments[0] && bookById.get(plan.segments[0].book_slug) && (
+        <Suspense fallback={null}>
+          <SermonRecs
+            bookId={bookById.get(plan.segments[0].book_slug)!.id}
+            chapter={plan.segments[0].ch_from}
+            bookNameHu={bookById.get(plan.segments[0].book_slug)!.name_hu}
+            focusNote={plan.focus_note}
+          />
+        </Suspense>
+      )}
+
+      <section className="mt-8">
+        <ButtonLink href="/olvasas/konyvek" variant="secondary" size="lg" className="w-full">
+          Szabad olvasás
+        </ButtonLink>
+      </section>
     </main>
   );
 }
