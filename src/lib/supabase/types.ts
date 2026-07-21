@@ -78,6 +78,13 @@ type MemoryVersesRow = {
   created_at: string;
 };
 
+type CoachReportsRow = {
+  week_start: string;
+  body: string;
+  stats: Record<string, unknown>;
+  generated_at: string;
+};
+
 type PreachersRow = {
   id: number;
   name: string;
@@ -267,6 +274,7 @@ export interface Database {
         SermonRecsRow,
         Pick<SermonRecsRow, "book_id" | "chapter" | "video_id" | "preacher_id" | "title" | "channel_title"> & Partial<SermonRecsRow>
       >;
+      coach_reports: Table<CoachReportsRow, Pick<CoachReportsRow, "week_start" | "body" | "stats"> & Partial<CoachReportsRow>>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

@@ -8,9 +8,11 @@ import { dayIndexForDate } from "@/lib/session/day-index";
 import { computeStreak } from "@/lib/streak/compute";
 import { checkAndAwardBadges } from "@/lib/badges/check";
 import { reconcileXp } from "@/lib/xp/reconcile";
+import { getOrGenerateCoachReport } from "@/lib/coach/generate";
 import { cx } from "@/lib/cx";
 import { Card } from "@/components/ui/Card";
 import { BadgeToast } from "@/components/badges/BadgeToast";
+import { CoachReport } from "@/components/coach/CoachReport";
 
 export default async function ProgressPage() {
   const supabase = await createClient();
@@ -46,6 +48,7 @@ export default async function ProgressPage() {
   const programStart = settings?.program_start_date ?? new Date().toISOString().slice(0, 10);
   const dayIdx = dayIndexForDate(programStart, new Date());
   const xpSummary = await reconcileXp(supabase, dayIdx);
+  const coachReport = await getOrGenerateCoachReport(supabase);
 
   const scoreByBookSlug = new Map((bookMastery ?? []).map((m) => [m.scope_id, m]));
   const scoreByEra = new Map((eraMastery ?? []).map((m) => [m.scope_id, m]));
@@ -108,6 +111,12 @@ export default async function ProgressPage() {
       <BadgeToast badges={newBadges} />
       <h1 className="text-2xl font-extrabold text-ink">Haladás</h1>
       <p className="mt-1 text-sm text-ink-muted">{dayIdx}. nap a 365-ből</p>
+
+      {coachReport && (
+        <div className="mt-4">
+          <CoachReport body={coachReport.body} />
+        </div>
+      )}
 
       {/* Stats strip */}
       <section className="mt-4 grid grid-cols-3 gap-2">
