@@ -7,6 +7,7 @@ import type { ReviewCard } from "@/lib/review/types";
 import type { McqPayload, ClozePayload, LocatePayload, NumericPayload } from "@/lib/content/card-payloads";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { VerseTrainer } from "@/components/verse/VerseTrainer";
 
 interface Props {
   card: ReviewCard;
@@ -29,6 +30,10 @@ export function CardFace({ card, revealed, onReveal, mcqOptions }: Props) {
     setSelectedOption(null);
     setShowContext(false);
   }, [card.id]);
+
+  if (card.type === "verse" && !revealed) {
+    return <VerseTrainer card={card} onDone={onReveal} />;
+  }
 
   const accepted = [card.answer, ...card.answer_alt];
 

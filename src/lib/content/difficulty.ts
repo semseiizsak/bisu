@@ -1,4 +1,4 @@
-export type CardType = "recall" | "reverse" | "mcq" | "numeric" | "cloze" | "order" | "locate" | "map" | "chain";
+export type CardType = "recall" | "reverse" | "mcq" | "numeric" | "cloze" | "order" | "locate" | "map" | "chain" | "verse";
 
 interface DifficultyInput {
   entityImportance?: number | null;

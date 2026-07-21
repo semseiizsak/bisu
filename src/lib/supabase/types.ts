@@ -65,6 +65,19 @@ type DailyQuestsRow = {
   seen_at: string | null;
 };
 
+type MemoryVersesRow = {
+  id: number;
+  card_id: number;
+  book_id: number;
+  chapter: number;
+  verse_from: number;
+  verse_to: number;
+  reference: string;
+  text: string;
+  stage: number;
+  created_at: string;
+};
+
 type TimelineEventsRow = {
   id: number;
   label_hu: string;
@@ -216,6 +229,10 @@ export interface Database {
       suppressed_fact_keys: Table<SuppressedFactKeysRow, Pick<SuppressedFactKeysRow, "fact_key"> & Partial<SuppressedFactKeysRow>>;
       xp_events: Table<XpEventsRow, Pick<XpEventsRow, "amount" | "kind" | "ref"> & Partial<XpEventsRow>>;
       daily_quests: Table<DailyQuestsRow, Pick<DailyQuestsRow, "day_idx" | "quest_key" | "label_hu" | "target"> & Partial<DailyQuestsRow>>;
+      memory_verses: Table<
+        MemoryVersesRow,
+        Pick<MemoryVersesRow, "card_id" | "book_id" | "chapter" | "verse_from" | "verse_to" | "reference" | "text"> & Partial<MemoryVersesRow>
+      >;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

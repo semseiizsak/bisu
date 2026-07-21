@@ -7,6 +7,7 @@ import { RatingButtons } from "@/components/review/RatingButtons";
 import { reviewCard, type FsrsRating } from "@/lib/fsrs/engine";
 import { queuePendingReview, flushPendingReviews } from "@/lib/db/sync";
 import { flagCardNotImportant, suppressSimilarFacts } from "@/lib/actions/flag-card";
+import { advanceVerseStage } from "@/lib/actions/memory-verse";
 import type { ReviewCard } from "@/lib/review/types";
 
 interface Props {
@@ -68,6 +69,10 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
   const rate = useCallback(
     async (rating: FsrsRating) => {
       if (!card) return;
+      // A drill's clean pass already advanced the stage optimistically —
+      // "Again" here means the learner didn't actually feel confident, so
+      // walk it back a step.
+      if (card.type === "verse" && rating === 1) void advanceVerseStage(card.id, -1);
       const durationMs = Date.now() - startedAt.current;
       const { next, elapsedDays } = reviewCard(card.state, rating, new Date());
 

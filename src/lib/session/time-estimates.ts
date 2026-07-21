@@ -13,6 +13,7 @@ export const DEFAULT_TIME_ESTIMATES: { reading_per_verse: number; card: Record<C
     order: 0.9,
     chain: 0.75,
     map: 0.6,
+    verse: 2,
   },
 };
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createManualCard, suggestCard } from "@/app/(app)/olvasas/actions";
+import { createMemoryVerse } from "@/lib/actions/memory-verse";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -17,8 +18,14 @@ interface Props {
   chapter: number;
 }
 
+function verseNumberOf(node: Node | null): number | null {
+  let el = node instanceof HTMLElement ? node : node?.parentElement ?? null;
+  while (el && !(el.dataset && el.dataset.verse)) el = el.parentElement;
+  return el ? Number(el.dataset.verse) : null;
+}
+
 export function ReaderClient({ verses, bookId, bookShort, chapter }: Props) {
-  const [selection, setSelection] = useState<{ text: string; verse: number } | null>(null);
+  const [selection, setSelection] = useState<{ text: string; verse: number; verseTo: number } | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
@@ -27,22 +34,46 @@ export function ReaderClient({ verses, bookId, bookShort, chapter }: Props) {
   const [aiError, setAiError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [memorizing, setMemorizing] = useState(false);
+  const [memorized, setMemorized] = useState(false);
 
   function handleSelect() {
     const sel = window.getSelection();
     const text = sel?.toString().trim();
-    if (!text || text.length < 2) {
+    if (!text || text.length < 2 || !sel) {
       setSelection(null);
       return;
     }
-    let node = sel?.anchorNode as HTMLElement | null;
-    while (node && !(node instanceof HTMLElement && node.dataset.verse)) {
-      node = node?.parentElement ?? null;
-    }
-    const verse = node ? Number(node.dataset.verse) : (verses[0]?.verse ?? 1);
-    setSelection({ text, verse });
+    const range = sel.getRangeAt(0);
+    const verseFrom = verseNumberOf(range.startContainer) ?? verses[0]?.verse ?? 1;
+    const verseTo = verseNumberOf(range.endContainer) ?? verseFrom;
+    setSelection({ text, verse: Math.min(verseFrom, verseTo), verseTo: Math.max(verseFrom, verseTo) });
     setSaved(false);
     setAiError(false);
+    setMemorized(false);
+  }
+
+  async function memorize() {
+    if (!selection || memorizing) return;
+    setMemorizing(true);
+    try {
+      const spanned = verses.filter((v) => v.verse >= selection.verse && v.verse <= selection.verseTo);
+      const fullText = (spanned.length ? spanned : [{ verse: selection.verse, text: selection.text }]).map((v) => v.text).join(" ");
+      const reference =
+        selection.verse === selection.verseTo ? `${bookShort} ${chapter}:${selection.verse}` : `${bookShort} ${chapter}:${selection.verse}-${selection.verseTo}`;
+      await createMemoryVerse({
+        book_id: bookId,
+        chapter,
+        verse_from: selection.verse,
+        verse_to: selection.verseTo,
+        reference,
+        text: fullText,
+      });
+      setMemorized(true);
+      setSelection(null);
+    } finally {
+      setMemorizing(false);
+    }
   }
 
   function openForm() {
@@ -125,6 +156,9 @@ export function ReaderClient({ verses, bookId, bookShort, chapter }: Props) {
                 <Button size="sm" variant="secondary" onClick={openForm}>
                   Kézzel írom
                 </Button>
+                <Button size="sm" variant="secondary" onClick={memorize} disabled={memorizing}>
+                  {memorizing ? "Mentés…" : "Megtanulom kívülről"}
+                </Button>
                 <Button size="sm" variant="ghost" onClick={() => setSelection(null)}>
                   Bezár
                 </Button>
@@ -159,6 +193,7 @@ export function ReaderClient({ verses, bookId, bookShort, chapter }: Props) {
       )}
 
       {saved && <p className="mt-3 text-sm text-good">Kártya létrehozva.</p>}
+      {memorized && <p className="mt-3 text-sm text-good">Hozzáadva a memoriterekhez.</p>}
     </div>
   );
 }

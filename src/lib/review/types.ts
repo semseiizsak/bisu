@@ -1,6 +1,6 @@
 import type { CardType } from "@/lib/content/difficulty";
 import type { PersistedCardState } from "@/lib/fsrs/engine";
-import type { McqPayload, ClozePayload, LocatePayload, NumericPayload } from "@/lib/content/card-payloads";
+import type { McqPayload, ClozePayload, LocatePayload, NumericPayload, VersePayload } from "@/lib/content/card-payloads";
 
 export interface ReviewCard {
   id: number;
@@ -9,7 +9,7 @@ export interface ReviewCard {
   answer: string;
   answer_alt: string[];
   distractors: string[];
-  payload: McqPayload | ClozePayload | LocatePayload | NumericPayload | Record<string, unknown> | null;
+  payload: McqPayload | ClozePayload | LocatePayload | NumericPayload | VersePayload | Record<string, unknown> | null;
   verse_ref: string | null;
   entity_id: number | null;
   fact_id: number | null;

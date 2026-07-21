@@ -40,13 +40,20 @@ export default async function TodayPage() {
   const dayIdx = plan.day_idx;
   // Runs before the Promise.all below so fetchDailyQuests reads up-to-date progress.
   const newQuests = dayIdx != null ? await updateQuestProgress(supabase, dayIdx) : [];
-  const [progress, streak, newBadges, xpSummary, questRows] = await Promise.all([
+  const [progress, streak, newBadges, xpSummary, questRows, dueVerses] = await Promise.all([
     computeDayProgress(supabase, plan),
     computeStreak(supabase),
     checkAndAwardBadges(supabase),
     reconcileXp(supabase, dayIdx),
     dayIdx != null ? fetchDailyQuests(supabase, dayIdx) : Promise.resolve([]),
+    supabase
+      .from("memory_verses")
+      .select("card_id, cards!inner(active, card_states!inner(due_at, suspended))", { count: "exact", head: true })
+      .eq("cards.active", true)
+      .eq("cards.card_states.suspended", false)
+      .lte("cards.card_states.due_at", new Date().toISOString()),
   ]);
+  const dueVerseCount = dueVerses.count ?? 0;
 
   const readingBlock = plan.blocks.find((b) => b.type === "reading");
   const gameBlock = plan.blocks.find((b) => b.type === "game");
@@ -161,6 +168,18 @@ export default async function TodayPage() {
         ))}
         {rows.length === 0 && <p className="text-ink-muted">Nincs ma mit tenni — pihenj.</p>}
       </div>
+
+      {dueVerseCount > 0 && (
+        <Card className="mt-2 flex items-center justify-between px-4 py-3">
+          <div>
+            <p className="font-extrabold text-ink">Memoriter</p>
+            <p className="text-sm text-ink-muted">{dueVerseCount} esedékes vers</p>
+          </div>
+          <ButtonLink href="/memoriter" size="sm" variant="secondary">
+            Gyakorlom
+          </ButtonLink>
+        </Card>
+      )}
 
       <QuestList quests={questRows} />
 

@@ -26,3 +26,8 @@ export interface MapPayload {
   tolerance: number;
   place_type: string | null;
 }
+export interface VersePayload {
+  text: string;
+  reference: string;
+  stage: 1 | 2 | 3;
+}
