@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import type { SessionPlan } from "@/lib/session/types";
-import { DEFAULT_TIME_ESTIMATES } from "@/lib/session/time-estimates";
 import { DAILY_QUIZ_CAP } from "@/lib/session/constants";
 
 type DB = SupabaseClient<Database>;
@@ -23,9 +22,6 @@ export interface DayProgress {
 
 const SRS_BLOCK_TYPES = ["review", "new", "weak", "interleave"];
 
-const CARD_MINUTE_VALUES = Object.values(DEFAULT_TIME_ESTIMATES.card);
-const AVG_CARD_MINUTES = CARD_MINUTE_VALUES.reduce((a, b) => a + b, 0) / CARD_MINUTE_VALUES.length;
-
 export async function computeDayProgress(db: DB, plan: SessionPlan, now: Date = new Date()): Promise<DayProgress> {
   const todayStart = new Date(now);
   todayStart.setUTCHours(0, 0, 0, 0);
@@ -35,7 +31,15 @@ export async function computeDayProgress(db: DB, plan: SessionPlan, now: Date = 
   const srsPlanned = plan.blocks.filter((b) => SRS_BLOCK_TYPES.includes(b.type)).reduce((s, b) => s + b.items.length, 0);
   const srsExpected = Math.min(DAILY_QUIZ_CAP, srsPlanned);
   const gameBlock = plan.blocks.find((b) => b.type === "game");
-  const gameExpected = gameBlock ? Math.max(3, Math.round(gameBlock.est_minutes / AVG_CARD_MINUTES)) : 0;
+  // A "game" block is always one bounded round of whichever mode got rotated
+  // in for the day (locate caps at 10 items, chain at whatever the picked
+  // genealogy line has, timeline at 1, etc.) — every mode's real ceiling is
+  // far below what est_minutes/avg-card-time implied, so that formula could
+  // set an unreachable target and leave a genuinely finished round stuck at
+  // "folyamatban" forever. Track it as done/not-done instead, same as
+  // reading, and consistent with how the "game_played" quest already
+  // defines completion (see src/lib/quests/progress.ts).
+  const gameExpected = gameBlock ? 1 : 0;
 
   const [readingResult, srsResult, gameResult] = await Promise.all([
     readingBlock && plan.day_idx != null
