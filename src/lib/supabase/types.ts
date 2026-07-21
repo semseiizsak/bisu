@@ -101,6 +101,16 @@ type DayTopicsRow = {
   generated_at: string;
 };
 
+type ExtractionRunsRow = {
+  book_slug: string;
+  chapter: number;
+  status: "done" | "error";
+  fact_count: number;
+  error: string | null;
+  model: string;
+  created_at: string;
+};
+
 type SermonRecsRow = {
   book_id: number;
   chapter: number;
@@ -275,6 +285,7 @@ export interface Database {
         Pick<SermonRecsRow, "book_id" | "chapter" | "video_id" | "preacher_id" | "title" | "channel_title"> & Partial<SermonRecsRow>
       >;
       coach_reports: Table<CoachReportsRow, Pick<CoachReportsRow, "week_start" | "body" | "stats"> & Partial<CoachReportsRow>>;
+      extraction_runs: Table<ExtractionRunsRow, Pick<ExtractionRunsRow, "book_slug" | "chapter" | "status" | "model"> & Partial<ExtractionRunsRow>>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

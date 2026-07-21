@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 import { resolve } from "node:path";
+import type { Database } from "../../src/lib/supabase/types";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 
@@ -13,6 +14,6 @@ if (!url || !key) {
   );
 }
 
-export const supabaseAdmin = createClient(url, key, {
+export const supabaseAdmin = createClient<Database>(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });

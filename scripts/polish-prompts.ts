@@ -15,6 +15,11 @@
  * still unpolished, shrinking the batch size each round to raise the odds
  * of a clean pass.
  *
+ * The JIT pipeline (src/lib/pipeline/polish.ts, called from
+ * /api/pipeline/jit) runs a no-frills version of this same loop
+ * automatically after every extraction; this script is the interactive
+ * variant for large manual batches (dry-run, round-by-round progress).
+ *
  * Usage:
  *   npx tsx scripts/polish-prompts.ts
  *   npx tsx scripts/polish-prompts.ts --limit 50   # process a small batch first
