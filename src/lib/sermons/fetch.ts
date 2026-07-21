@@ -72,7 +72,11 @@ async function searchYoutube(query: string, channelId: string | null, apiKey: st
 
   try {
     const res = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
-    if (!res.ok) return [];
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(`[sermons] YouTube search failed (${res.status}) for "${query}":`, body.slice(0, 500));
+      return [];
+    }
     const json = (await res.json()) as {
       items?: { id?: { videoId?: string }; snippet?: { title?: string; channelTitle?: string; publishedAt?: string; thumbnails?: { medium?: { url?: string }; default?: { url?: string } } } }[];
     };
@@ -89,7 +93,8 @@ async function searchYoutube(query: string, channelId: string | null, apiKey: st
       });
     }
     return items;
-  } catch {
+  } catch (err) {
+    console.error(`[sermons] YouTube search threw for "${query}":`, err instanceof Error ? err.message : err);
     return [];
   }
 }
