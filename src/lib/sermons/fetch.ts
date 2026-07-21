@@ -20,6 +20,31 @@ function isFresh(iso: string): boolean {
   return Date.now() - new Date(iso).getTime() < TTL_MS;
 }
 
+function foldDiacritics(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
+/** Significant name tokens (3+ letters) used to check that a search hit is
+ * actually about/by this preacher — YouTube's `q` match is loose enough that
+ * unrelated channels regularly surface just from keyword overlap (e.g. a
+ * dramatized-retelling channel matching on "Ábrahám szövetség"). */
+function nameTokens(name: string): string[] {
+  return foldDiacritics(name)
+    .split(/\s+/)
+    .filter((t) => t.length >= 3);
+}
+
+function matchesPreacher(item: YoutubeItem, tokens: string[]): boolean {
+  // Require every token (not just one) — a lone token like "hit" ("faith")
+  // from "Hit Gyülekezete" is far too common a word to prove relevance by
+  // itself, but the full name together reliably does.
+  const haystack = foldDiacritics(`${item.title} ${item.channel_title}`);
+  return tokens.every((t) => haystack.includes(t));
+}
+
 const TOPIC_SYSTEM = `Bibliai fejezet fő témáit gyűjtöd ki rövid kulcsszavakban, amiket
 YouTube-keresésre fogunk használni magyar nyelvű bibliai tanításokhoz. A
 kulcsszavak egy keresőmezőbe kerülnek egymás mellé, ezért KRITIKUS, hogy
@@ -75,7 +100,7 @@ async function searchYoutube(query: string, channelId: string | null, apiKey: st
   const params = new URLSearchParams({
     part: "snippet",
     type: "video",
-    maxResults: "3",
+    maxResults: "5",
     relevanceLanguage: "hu",
     q: query,
     key: apiKey,
@@ -160,14 +185,27 @@ export async function getSermonRecs(db: DB, bookId: number, chapter: number, boo
 
   const key: string = apiKey; // narrow once — TS doesn't carry the early-return narrowing into the closure below
   type PreacherRow = NonNullable<typeof preachers>[number];
-  async function searchAllPreachers(
-    query: string,
-  ): Promise<{ recs: SermonRec[]; rows: Database["public"]["Tables"]["sermon_recs"]["Insert"][] }> {
-    const recs: SermonRec[] = [];
-    const rows: Database["public"]["Tables"]["sermon_recs"]["Insert"][] = [];
-    for (const p of preachers as PreacherRow[]) {
-      const items = await searchYoutube(`${query} ${p.query_modifier}`.trim(), p.channel_id, key);
+
+  // One query per (keyword, preacher) pair — a single joined query ("Ábrahám
+  // szövetség Derek Prince magyarul tanítás") ranks worse and less reliably
+  // than searching each topic on its own, which is what actually surfaced
+  // good results when tried by hand. Each hit is then required to actually
+  // mention the preacher (by name, in title or channel) before it's kept —
+  // YouTube's relevance search readily returns videos from unrelated
+  // channels that just happen to share the keyword text.
+  const searchKeywords = keywords.slice(0, 3);
+  const recs: SermonRec[] = [];
+  const rows: Database["public"]["Tables"]["sermon_recs"]["Insert"][] = [];
+  const seenVideoIds = new Set<string>();
+
+  for (const p of preachers as PreacherRow[]) {
+    const tokens = nameTokens(p.name);
+    for (const kw of searchKeywords) {
+      const items = await searchYoutube(`${kw} ${p.query_modifier}`.trim(), p.channel_id, key);
       for (const it of items) {
+        if (seenVideoIds.has(it.video_id)) continue;
+        if (!p.channel_id && !matchesPreacher(it, tokens)) continue;
+        seenVideoIds.add(it.video_id);
         recs.push({ ...it, preacher_name: p.name });
         rows.push({
           book_id: bookId,
@@ -182,24 +220,12 @@ export async function getSermonRecs(db: DB, bookId: number, chapter: number, boo
         });
       }
     }
-    return { recs, rows };
-  }
-
-  // Keep the search query itself short — YouTube's relevance ranking degrades
-  // fast as more terms get ANDed together, so start with just the top couple
-  // of keywords (all `keywords` are still stored/shown either way). A specific
-  // keyword pair can still legitimately match nothing, so if that comes back
-  // empty across every preacher, retry once with just the single best keyword
-  // before giving up — this block needs to reliably have something to show.
-  let { recs, rows: upsertRows } = await searchAllPreachers(keywords.slice(0, 2).join(" "));
-  if (recs.length === 0 && keywords.length > 1) {
-    ({ recs, rows: upsertRows } = await searchAllPreachers(keywords[0]));
   }
 
   await Promise.all([
     admin.from("day_topics").upsert({ book_id: bookId, chapter, keywords, generated_at: now }),
-    upsertRows.length ? admin.from("sermon_recs").upsert(upsertRows, { onConflict: "book_id,chapter,video_id" }) : Promise.resolve(),
+    rows.length ? admin.from("sermon_recs").upsert(rows, { onConflict: "book_id,chapter,video_id" }) : Promise.resolve(),
   ]);
 
-  return recs.slice(0, 6);
+  return recs.slice(0, 10);
 }
