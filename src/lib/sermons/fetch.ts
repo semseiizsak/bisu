@@ -157,29 +157,43 @@ export async function getSermonRecs(db: DB, bookId: number, chapter: number, boo
   }
 
   const keywords = await deriveTopics(bookNameHu, chapter, focusNote);
-  // Keep the search query itself short — YouTube's relevance ranking degrades
-  // fast as more terms get ANDed together, so use the top couple of keywords
-  // (all `keywords` are still stored/shown; this only trims what gets searched).
-  const query = keywords.slice(0, 2).join(" ");
 
-  const recs: SermonRec[] = [];
-  const upsertRows: Database["public"]["Tables"]["sermon_recs"]["Insert"][] = [];
-  for (const p of preachers) {
-    const items = await searchYoutube(`${query} ${p.query_modifier}`.trim(), p.channel_id, apiKey);
-    for (const it of items) {
-      recs.push({ ...it, preacher_name: p.name });
-      upsertRows.push({
-        book_id: bookId,
-        chapter,
-        video_id: it.video_id,
-        preacher_id: p.id,
-        title: it.title,
-        channel_title: it.channel_title,
-        thumbnail_url: it.thumbnail_url,
-        published_at: it.published_at,
-        fetched_at: now,
-      });
+  const key: string = apiKey; // narrow once — TS doesn't carry the early-return narrowing into the closure below
+  type PreacherRow = NonNullable<typeof preachers>[number];
+  async function searchAllPreachers(
+    query: string,
+  ): Promise<{ recs: SermonRec[]; rows: Database["public"]["Tables"]["sermon_recs"]["Insert"][] }> {
+    const recs: SermonRec[] = [];
+    const rows: Database["public"]["Tables"]["sermon_recs"]["Insert"][] = [];
+    for (const p of preachers as PreacherRow[]) {
+      const items = await searchYoutube(`${query} ${p.query_modifier}`.trim(), p.channel_id, key);
+      for (const it of items) {
+        recs.push({ ...it, preacher_name: p.name });
+        rows.push({
+          book_id: bookId,
+          chapter,
+          video_id: it.video_id,
+          preacher_id: p.id,
+          title: it.title,
+          channel_title: it.channel_title,
+          thumbnail_url: it.thumbnail_url,
+          published_at: it.published_at,
+          fetched_at: now,
+        });
+      }
     }
+    return { recs, rows };
+  }
+
+  // Keep the search query itself short — YouTube's relevance ranking degrades
+  // fast as more terms get ANDed together, so start with just the top couple
+  // of keywords (all `keywords` are still stored/shown either way). A specific
+  // keyword pair can still legitimately match nothing, so if that comes back
+  // empty across every preacher, retry once with just the single best keyword
+  // before giving up — this block needs to reliably have something to show.
+  let { recs, rows: upsertRows } = await searchAllPreachers(keywords.slice(0, 2).join(" "));
+  if (recs.length === 0 && keywords.length > 1) {
+    ({ recs, rows: upsertRows } = await searchAllPreachers(keywords[0]));
   }
 
   await Promise.all([
