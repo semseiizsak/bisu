@@ -21,10 +21,17 @@ function isFresh(iso: string): boolean {
 }
 
 const TOPIC_SYSTEM = `Bibliai fejezet fő témáit gyűjtöd ki rövid kulcsszavakban, amiket
-YouTube-keresésre fogunk használni magyar nyelvű bibliai tanításokhoz.
+YouTube-keresésre fogunk használni magyar nyelvű bibliai tanításokhoz. A
+kulcsszavak egy keresőmezőbe kerülnek egymás mellé, ezért KRITIKUS, hogy
+rövidek legyenek — egy hosszú, leíró kifejezésekből összefűzött lekérdezésre
+gyakorlatilag sosem talál a YouTube semmit.
 Szabályok:
-- 2-4 rövid kulcsszó vagy kifejezés (pl. "teremtés", "az ember bűnbeesése").
-- Csak a fejezet valódi tartalmára utaló, keresésre alkalmas kifejezések.
+- 2-4 kulcsszó, MINDEGYIK 1, legfeljebb 2 szóból álljon.
+- Tulajdonnevek (szereplők, helyszínek) és önálló fogalmak — NE leíró
+  kifejezések vagy tagmondatok.
+- Jó példák: "Melkisédek", "tized", "Ábrahám", "bűnbeesés", "özönvíz".
+- Rossz példák (túl hosszúak, ne írj ilyet): "Ábrahám győzelme a királyok felett",
+  "az ember bűnbeesése a kertben", "Lót megszabadítása Sodomából".
 - Válaszolj KIZÁRÓLAG ezzel a JSON formával: {"keywords": ["...", "..."]}`;
 
 async function deriveTopics(bookNameHu: string, chapter: number, focusNote: string | null): Promise<string[]> {
@@ -42,7 +49,12 @@ async function deriveTopics(bookNameHu: string, chapter: number, focusNote: stri
     const raw = completion.choices[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(raw) as { keywords?: unknown };
     const keywords = Array.isArray(parsed.keywords)
-      ? parsed.keywords.filter((k): k is string => typeof k === "string" && k.trim().length > 0).slice(0, 4)
+      ? parsed.keywords
+          // Defense in depth against the model still returning a descriptive
+          // clause instead of a short term — a query built from long phrases
+          // reliably returns zero YouTube results (verified live).
+          .filter((k): k is string => typeof k === "string" && k.trim().length > 0 && k.trim().split(/\s+/).length <= 2)
+          .slice(0, 4)
       : [];
     if (keywords.length) return keywords;
   } catch {
@@ -145,7 +157,10 @@ export async function getSermonRecs(db: DB, bookId: number, chapter: number, boo
   }
 
   const keywords = await deriveTopics(bookNameHu, chapter, focusNote);
-  const query = keywords.join(" ");
+  // Keep the search query itself short — YouTube's relevance ranking degrades
+  // fast as more terms get ANDed together, so use the top couple of keywords
+  // (all `keywords` are still stored/shown; this only trims what gets searched).
+  const query = keywords.slice(0, 2).join(" ");
 
   const recs: SermonRec[] = [];
   const upsertRows: Database["public"]["Tables"]["sermon_recs"]["Insert"][] = [];
