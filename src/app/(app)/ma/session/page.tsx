@@ -48,7 +48,7 @@ export default async function SessionPage({
 
   return (
     <main className="mx-auto max-w-md px-4 pt-6">
-      <DailySession cards={cards} game={game} streak={streak.current} />
+      <DailySession cards={cards} game={game} streak={streak.current} dayIdx={plan.day_idx} />
     </main>
   );
 }

@@ -52,6 +52,19 @@ type FactsRow = {
 
 type SuppressedFactKeysRow = { fact_key: string; created_at: string };
 
+type XpEventsRow = { id: number; amount: number; kind: string; ref: string; created_at: string };
+
+type DailyQuestsRow = {
+  day_idx: number;
+  quest_key: string;
+  label_hu: string;
+  target: number;
+  progress: number;
+  xp: number;
+  completed_at: string | null;
+  seen_at: string | null;
+};
+
 type TimelineEventsRow = {
   id: number;
   label_hu: string;
@@ -201,6 +214,8 @@ export interface Database {
       settings: Table<SettingsRow, Partial<SettingsRow>>;
       badges: Table<BadgesRow, Pick<BadgesRow, "id" | "category" | "metric" | "label_hu" | "description_hu" | "threshold"> & Partial<BadgesRow>>;
       suppressed_fact_keys: Table<SuppressedFactKeysRow, Pick<SuppressedFactKeysRow, "fact_key"> & Partial<SuppressedFactKeysRow>>;
+      xp_events: Table<XpEventsRow, Pick<XpEventsRow, "amount" | "kind" | "ref"> & Partial<XpEventsRow>>;
+      daily_quests: Table<DailyQuestsRow, Pick<DailyQuestsRow, "day_idx" | "quest_key" | "label_hu" | "target"> & Partial<DailyQuestsRow>>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

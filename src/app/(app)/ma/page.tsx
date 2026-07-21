@@ -3,6 +3,8 @@ import { buildSessionPlan } from "@/lib/session/build-session";
 import { computeDayProgress } from "@/lib/session/day-progress";
 import { computeStreak } from "@/lib/streak/compute";
 import { checkAndAwardBadges } from "@/lib/badges/check";
+import { updateQuestProgress, fetchDailyQuests } from "@/lib/quests/progress";
+import { reconcileXp } from "@/lib/xp/reconcile";
 import { gameLabel } from "@/lib/content/games";
 import { cx } from "@/lib/cx";
 import { ButtonLink } from "@/components/ui/Button";
@@ -10,6 +12,8 @@ import { Card } from "@/components/ui/Card";
 import { DayRing } from "@/components/ui/DayRing";
 import { StreakIcon } from "@/components/nav/icons";
 import { BadgeToast } from "@/components/badges/BadgeToast";
+import { QuestList } from "@/components/quests/QuestList";
+import { QuestToast } from "@/components/quests/QuestToast";
 
 const SRS_BLOCK_TYPES = ["review", "new", "weak", "interleave"];
 
@@ -33,10 +37,15 @@ function StatusChip({ state, label }: { state: RowState; label: string }) {
 export default async function TodayPage() {
   const supabase = await createClient();
   const plan = await buildSessionPlan(supabase, new Date(), "full");
-  const [progress, streak, newBadges] = await Promise.all([
+  const dayIdx = plan.day_idx;
+  // Runs before the Promise.all below so fetchDailyQuests reads up-to-date progress.
+  const newQuests = dayIdx != null ? await updateQuestProgress(supabase, dayIdx) : [];
+  const [progress, streak, newBadges, xpSummary, questRows] = await Promise.all([
     computeDayProgress(supabase, plan),
     computeStreak(supabase),
     checkAndAwardBadges(supabase),
+    reconcileXp(supabase, dayIdx),
+    dayIdx != null ? fetchDailyQuests(supabase, dayIdx) : Promise.resolve([]),
   ]);
 
   const readingBlock = plan.blocks.find((b) => b.type === "reading");
@@ -115,6 +124,7 @@ export default async function TodayPage() {
   return (
     <main className="mx-auto max-w-md px-4 pt-8">
       <BadgeToast badges={newBadges} />
+      <QuestToast dayIdx={dayIdx ?? 0} quests={newQuests} />
       <h1 className="text-2xl font-extrabold text-ink">Ma</h1>
 
       <div className="mt-4 flex items-center gap-4">
@@ -130,6 +140,9 @@ export default async function TodayPage() {
               {streak.current} napos sorozat
             </p>
           )}
+          <p className="mt-1 text-sm font-extrabold text-ink-muted">
+            Szint {xpSummary.level} · ma +{xpSummary.todayXp} XP
+          </p>
         </div>
       </div>
 
@@ -148,6 +161,8 @@ export default async function TodayPage() {
         ))}
         {rows.length === 0 && <p className="text-ink-muted">Nincs ma mit tenni — pihenj.</p>}
       </div>
+
+      <QuestList quests={questRows} />
 
       <div className="mt-8 flex flex-col gap-3">
         {allDone ? (

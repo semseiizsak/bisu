@@ -9,12 +9,16 @@ import { flushPendingReviews } from "@/lib/db/sync";
 import { buildMcqOptionsByCard, interleaveCards } from "@/lib/session/interleave";
 import { BLITZ_QUESTIONS, BLITZ_SECONDS, QUIZ_ROUND_SIZE } from "@/lib/session/constants";
 import { gameLabel } from "@/lib/content/games";
+import { recordBlitzResult } from "@/lib/actions/blitz-result";
+import { getXpSummary } from "@/lib/actions/xp-summary";
+import type { XpSummary } from "@/lib/xp/reconcile";
 import type { ReviewCard } from "@/lib/review/types";
 
 interface Props {
   cards: ReviewCard[];
   game: string | null;
   streak: number;
+  dayIdx: number | null;
 }
 
 type Phase =
@@ -34,7 +38,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 /** Stage 3+4 of the guided daily session: the quiz in rounds of ~10-12 with
  * breather screens, a timed MCQ blitz between rounds for variety, and a
  * completion summary — instead of one flat, endless run of typed questions. */
-export function DailySession({ cards, game, streak }: Props) {
+export function DailySession({ cards, game, streak, dayIdx }: Props) {
   const mcqOptionsByCard = useMemo(() => buildMcqOptionsByCard(cards), [cards]);
   const ordered = useMemo(() => interleaveCards(cards, mcqOptionsByCard), [cards, mcqOptionsByCard]);
   const rounds = useMemo(() => chunk(ordered, QUIZ_ROUND_SIZE), [ordered]);
@@ -42,10 +46,16 @@ export function DailySession({ cards, game, streak }: Props) {
   const [phase, setPhase] = useState<Phase>({ kind: "round", idx: 0 });
   const [totalCorrect, setTotalCorrect] = useState(0);
   const [totalDone, setTotalDone] = useState(0);
+  const [xpSummary, setXpSummary] = useState<XpSummary | null>(null);
 
   useEffect(() => {
     void flushPendingReviews();
   }, []);
+
+  useEffect(() => {
+    if (phase.kind !== "done") return;
+    void flushPendingReviews().then(() => getXpSummary(dayIdx)).then(setXpSummary);
+  }, [phase.kind, dayIdx]);
 
   if (ordered.length === 0) {
     return (
@@ -69,6 +79,11 @@ export function DailySession({ cards, game, streak }: Props) {
           <p className="text-ink-muted">
             {totalCorrect}/{totalDone} helyes válasz ({pct}%)
           </p>
+          {xpSummary && (
+            <p className="text-sm font-extrabold text-accent">
+              +{xpSummary.todayXp} XP ma · Szint {xpSummary.level}
+            </p>
+          )}
           {streak > 0 && <p className="text-sm font-extrabold text-accent">{streak} napos sorozat</p>}
           <div className="mt-4 flex flex-col gap-3">
             {game && (
@@ -168,6 +183,13 @@ function BlitzRound({
   const [hits, setHits] = useState(0);
 
   const item = items[index];
+
+  useEffect(() => {
+    if (item || items.length === 0) return;
+    void recordBlitzResult(hits, items.length);
+    // Fires once per BlitzRound mount when it completes — items/hits are stable by then.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item]);
 
   useEffect(() => {
     if (!item || picked) return;

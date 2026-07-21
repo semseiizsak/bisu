@@ -7,6 +7,7 @@ import { forecastDayToTarget } from "@/lib/mastery/forecast";
 import { dayIndexForDate } from "@/lib/session/day-index";
 import { computeStreak } from "@/lib/streak/compute";
 import { checkAndAwardBadges } from "@/lib/badges/check";
+import { reconcileXp } from "@/lib/xp/reconcile";
 import { cx } from "@/lib/cx";
 import { Card } from "@/components/ui/Card";
 import { BadgeToast } from "@/components/badges/BadgeToast";
@@ -44,6 +45,7 @@ export default async function ProgressPage() {
 
   const programStart = settings?.program_start_date ?? new Date().toISOString().slice(0, 10);
   const dayIdx = dayIndexForDate(programStart, new Date());
+  const xpSummary = await reconcileXp(supabase, dayIdx);
 
   const scoreByBookSlug = new Map((bookMastery ?? []).map((m) => [m.scope_id, m]));
   const scoreByEra = new Map((eraMastery ?? []).map((m) => [m.scope_id, m]));
@@ -98,6 +100,7 @@ export default async function ProgressPage() {
     { value: streak.longest, label: "leghosszabb sorozat" },
     { value: totalReviews ?? 0, label: "ismétlés összesen" },
     { value: masteredCards ?? 0, label: "elsajátított kártya" },
+    { value: xpSummary.level, label: "szint" },
   ];
 
   return (
@@ -107,7 +110,7 @@ export default async function ProgressPage() {
       <p className="mt-1 text-sm text-ink-muted">{dayIdx}. nap a 365-ből</p>
 
       {/* Stats strip */}
-      <section className="mt-4 grid grid-cols-4 gap-2">
+      <section className="mt-4 grid grid-cols-3 gap-2">
         {statTiles.map((s) => (
           <div key={s.label} className="rounded-md border border-line bg-surface p-2 text-center">
             <p className="text-lg font-extrabold text-ink">{s.value}</p>
