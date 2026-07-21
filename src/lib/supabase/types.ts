@@ -78,6 +78,34 @@ type MemoryVersesRow = {
   created_at: string;
 };
 
+type PreachersRow = {
+  id: number;
+  name: string;
+  channel_id: string | null;
+  query_modifier: string;
+  enabled: boolean;
+  created_at: string;
+};
+
+type DayTopicsRow = {
+  book_id: number;
+  chapter: number;
+  keywords: string[];
+  generated_at: string;
+};
+
+type SermonRecsRow = {
+  book_id: number;
+  chapter: number;
+  video_id: string;
+  preacher_id: number;
+  title: string;
+  channel_title: string;
+  thumbnail_url: string | null;
+  published_at: string | null;
+  fetched_at: string;
+};
+
 type TimelineEventsRow = {
   id: number;
   label_hu: string;
@@ -232,6 +260,12 @@ export interface Database {
       memory_verses: Table<
         MemoryVersesRow,
         Pick<MemoryVersesRow, "card_id" | "book_id" | "chapter" | "verse_from" | "verse_to" | "reference" | "text"> & Partial<MemoryVersesRow>
+      >;
+      preachers: Table<PreachersRow, Pick<PreachersRow, "name"> & Partial<PreachersRow>>;
+      day_topics: Table<DayTopicsRow, Pick<DayTopicsRow, "book_id" | "chapter"> & Partial<DayTopicsRow>>;
+      sermon_recs: Table<
+        SermonRecsRow,
+        Pick<SermonRecsRow, "book_id" | "chapter" | "video_id" | "preacher_id" | "title" | "channel_title"> & Partial<SermonRecsRow>
       >;
     };
     Views: Record<string, never>;

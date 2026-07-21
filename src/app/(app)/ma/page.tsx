@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { buildSessionPlan } from "@/lib/session/build-session";
 import { computeDayProgress } from "@/lib/session/day-progress";
@@ -14,6 +15,7 @@ import { StreakIcon } from "@/components/nav/icons";
 import { BadgeToast } from "@/components/badges/BadgeToast";
 import { QuestList } from "@/components/quests/QuestList";
 import { QuestToast } from "@/components/quests/QuestToast";
+import { SermonRecs } from "@/components/sermons/SermonRecs";
 
 const SRS_BLOCK_TYPES = ["review", "new", "weak", "interleave"];
 
@@ -121,6 +123,14 @@ export default async function TodayPage() {
   const readingPending = !!readingBlock?.reading && !readingDone;
   const canStartSession = progress.srsExpected > 0 || readingPending;
 
+  // Sermon recs need a book_id, which SessionBlock's reading info doesn't
+  // carry (only book_slug) — resolved on demand for the all-done block only.
+  let sermonBook: { id: number; name_hu: string } | null = null;
+  if (allDone && readingBlock?.reading) {
+    const { data } = await supabase.from("books").select("id, name_hu").eq("slug", readingBlock.reading.book_slug).maybeSingle();
+    sermonBook = data;
+  }
+
   function sessionHref(mode: "full" | "short") {
     if (readingPending && readingBlock?.reading) {
       return `/olvasas/${readingBlock.reading.book_slug}/${readingBlock.reading.ch_from}?flow=daily&mode=${mode}`;
@@ -190,6 +200,11 @@ export default async function TodayPage() {
             <ButtonLink size="lg" variant="secondary" href="/ma/session?mode=short">
               Extra kör (15′)
             </ButtonLink>
+            {sermonBook && readingBlock?.reading && (
+              <Suspense fallback={null}>
+                <SermonRecs bookId={sermonBook.id} chapter={readingBlock.reading.ch_from} bookNameHu={sermonBook.name_hu} focusNote={readingBlock.reading.focus_note} />
+              </Suspense>
+            )}
           </>
         ) : (
           canStartSession && (

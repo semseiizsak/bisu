@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BOOKS } from "@/lib/content/books";
 import { ReaderClient } from "@/components/reading/ReaderClient";
 import { FlowStepper } from "@/components/session/FlowStepper";
+import { SermonRecs } from "@/components/sermons/SermonRecs";
 import { ButtonLink } from "@/components/ui/Button";
 import { dayIndexForDate } from "@/lib/session/day-index";
 
@@ -48,9 +50,11 @@ export default async function ChapterPage({
   // the flow params alive across navigation (their loss on prev/next links
   // was the bug that killed the guided session after the first chapter).
   let daySpan: { book_slug: string; chapter: number }[] = [];
+  let focusNote: string | null = null;
   if (flow === "daily") {
     const dayIdx = dayIndexForDate(settings?.program_start_date ?? new Date().toISOString().slice(0, 10), new Date());
-    const { data: planRow } = await supabase.from("reading_plan").select("segments").eq("day_idx", dayIdx).maybeSingle();
+    const { data: planRow } = await supabase.from("reading_plan").select("segments, focus_note").eq("day_idx", dayIdx).maybeSingle();
+    focusNote = planRow?.focus_note ?? null;
     for (const seg of planRow?.segments ?? []) {
       for (let ch = seg.ch_from; ch <= seg.ch_to; ch++) daySpan.push({ book_slug: seg.book_slug, chapter: ch });
     }
@@ -101,6 +105,10 @@ export default async function ChapterPage({
       <div className="mt-6">
         <ReaderClient verses={verses} bookId={book.id} bookShort={book.short_hu} chapter={chapter} />
       </div>
+
+      <Suspense fallback={null}>
+        <SermonRecs bookId={book.id} chapter={chapter} bookNameHu={book.name_hu} focusNote={focusNote} />
+      </Suspense>
 
       <div className="mt-8 flex flex-col gap-3 pb-6">
         {inDailyFlow ? (
