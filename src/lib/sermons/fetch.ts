@@ -119,7 +119,16 @@ interface YoutubeItem {
   published_at: string | null;
 }
 
-async function searchYoutube(query: string, channelId: string | null, apiKey: string): Promise<YoutubeItem[]> {
+interface YoutubeSearchResult {
+  items: YoutubeItem[];
+  /** True on a 429/quota-exceeded response — the caller must not cache this
+   * as "no matches for this chapter", since it says nothing about whether
+   * matches actually exist, only that today's YouTube search budget (100
+   * calls/day on the default free quota) ran out. */
+  quotaExceeded: boolean;
+}
+
+async function searchYoutube(query: string, channelId: string | null, apiKey: string): Promise<YoutubeSearchResult> {
   const params = new URLSearchParams({
     part: "snippet",
     type: "video",
@@ -135,7 +144,7 @@ async function searchYoutube(query: string, channelId: string | null, apiKey: st
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(`[sermons] YouTube search failed (${res.status}) for "${query}":`, body.slice(0, 500));
-      return [];
+      return { items: [], quotaExceeded: res.status === 429 };
     }
     const json = (await res.json()) as {
       items?: { id?: { videoId?: string }; snippet?: { title?: string; channelTitle?: string; publishedAt?: string; thumbnails?: { medium?: { url?: string }; default?: { url?: string } } } }[];
@@ -152,10 +161,10 @@ async function searchYoutube(query: string, channelId: string | null, apiKey: st
         published_at: it.snippet.publishedAt ?? null,
       });
     }
-    return items;
+    return { items, quotaExceeded: false };
   } catch (err) {
     console.error(`[sermons] YouTube search threw for "${query}":`, err instanceof Error ? err.message : err);
-    return [];
+    return { items: [], quotaExceeded: false };
   }
 }
 
@@ -231,12 +240,14 @@ export async function getSermonRecs(
   const recsByPreacher: SermonRec[][] = [];
   const rows: Database["public"]["Tables"]["sermon_recs"]["Insert"][] = [];
   const seenVideoIds = new Set<string>();
+  let quotaExceeded = false;
 
   for (const p of preachers as PreacherRow[]) {
     const tokens = nameTokens(p.name);
     const preacherRecs: SermonRec[] = [];
     for (const kw of searchKeywords) {
-      const items = await searchYoutube(`${kw} ${p.query_modifier}`.trim(), p.channel_id, key);
+      const { items, quotaExceeded: hitQuota } = await searchYoutube(`${kw} ${p.query_modifier}`.trim(), p.channel_id, key);
+      if (hitQuota) quotaExceeded = true;
       for (const it of items) {
         if (seenVideoIds.has(it.video_id)) continue;
         if (!p.channel_id && !matchesPreacher(it, tokens)) continue;
@@ -259,8 +270,13 @@ export async function getSermonRecs(
     recsByPreacher.push(preacherRecs);
   }
 
+  // A quota-exhausted run says nothing about whether real matches exist, so
+  // don't stamp day_topics — that would lock in a false "no matches" cache
+  // for the full 7-day TTL. Whatever few rows *did* come back before the
+  // quota ran out are still worth caching, just not the "already tried"
+  // marker itself.
   await Promise.all([
-    admin.from("day_topics").upsert({ book_id: bookId, chapter, keywords, generated_at: now }),
+    quotaExceeded ? Promise.resolve() : admin.from("day_topics").upsert({ book_id: bookId, chapter, keywords, generated_at: now }),
     rows.length ? admin.from("sermon_recs").upsert(rows, { onConflict: "book_id,chapter,video_id" }) : Promise.resolve(),
   ]);
 
