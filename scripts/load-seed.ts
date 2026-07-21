@@ -121,6 +121,11 @@ async function loadFile(path: string, entityCache: Map<string, number>) {
     await resolveOrCreateEntity(e, entityCache);
   }
 
+  // Facts born under a fact_key the user has asked to suppress everywhere
+  // ("Minden hasonló elrejtése") should never surface, even freshly loaded.
+  const { data: suppressedRows } = await supabaseAdmin.from("suppressed_fact_keys").select("fact_key");
+  const suppressedKeys = new Set((suppressedRows ?? []).map((r) => r.fact_key));
+
   console.log(`Inserting ${seed.facts.length} facts…`);
   const factRows = seed.facts.map((f) => {
     const entityId = entityCache.get(f.entity_name);
@@ -138,6 +143,7 @@ async function loadFile(path: string, entityCache: Map<string, number>) {
       difficulty: f.difficulty,
       confidence: f.confidence,
       verified: f.confidence >= 0.9,
+      suppressed: suppressedKeys.has(f.fact_key),
       tags: f.tags ?? [],
     };
   });

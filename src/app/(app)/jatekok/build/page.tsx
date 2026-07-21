@@ -24,9 +24,15 @@ export default async function BuildPage() {
     .select("id, fact_key, fact_value, numeric_val, unit, verified")
     .eq("entity_id", pick.id)
     .eq("verified", true)
+    .eq("suppressed", false)
     .not("numeric_val", "is", null);
 
-  const { data: cards } = await supabase.from("cards").select("id, fact_id").eq("entity_id", pick.id).eq("type", "numeric");
+  const { data: cards } = await supabase
+    .from("cards")
+    .select("id, fact_id")
+    .eq("entity_id", pick.id)
+    .eq("type", "numeric")
+    .eq("active", true);
   const cardByFact = new Map((cards ?? []).map((c) => [c.fact_id, c.id]));
   const cardIds = [...cardByFact.values()];
   const { data: states } = cardIds.length

@@ -37,10 +37,10 @@ export async function buildVariantCard(
 ): Promise<VariantCardDraft | null> {
   const { data: fact } = await db
     .from("facts")
-    .select("id, entity_id, fact_key, fact_value, numeric_val, unit, verse_ref, book_id, chapter")
+    .select("id, entity_id, fact_key, fact_value, numeric_val, unit, verse_ref, book_id, chapter, verified, suppressed")
     .eq("id", factId)
     .maybeSingle();
-  if (!fact || fact.entity_id == null) return null;
+  if (!fact || fact.entity_id == null || !fact.verified || fact.suppressed) return null;
 
   const { data: entity } = await db
     .from("entities")

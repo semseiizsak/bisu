@@ -33,7 +33,7 @@ export default async function ChainPage() {
   }
 
   const { data: chainCards } = chainIds.length
-    ? await supabase.from("cards").select("id, entity_id").eq("type", "chain").in("entity_id", chainIds)
+    ? await supabase.from("cards").select("id, entity_id").eq("type", "chain").eq("active", true).in("entity_id", chainIds)
     : { data: [] };
   const cardIds = (chainCards ?? []).map((c) => c.id);
   const { data: states } = cardIds.length

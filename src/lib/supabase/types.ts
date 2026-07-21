@@ -46,8 +46,11 @@ type FactsRow = {
   difficulty: number;
   confidence: number;
   verified: boolean;
+  suppressed: boolean;
   tags: string[];
 };
+
+type SuppressedFactKeysRow = { fact_key: string; created_at: string };
 
 type TimelineEventsRow = {
   id: number;
@@ -197,6 +200,7 @@ export interface Database {
       daily_sessions: Table<DailySessionsRow, Pick<DailySessionsRow, "date"> & Partial<DailySessionsRow>>;
       settings: Table<SettingsRow, Partial<SettingsRow>>;
       badges: Table<BadgesRow, Pick<BadgesRow, "id" | "category" | "metric" | "label_hu" | "description_hu" | "threshold"> & Partial<BadgesRow>>;
+      suppressed_fact_keys: Table<SuppressedFactKeysRow, Pick<SuppressedFactKeysRow, "fact_key"> & Partial<SuppressedFactKeysRow>>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

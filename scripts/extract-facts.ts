@@ -133,6 +133,11 @@ async function loadExtracted() {
 
   const { data: dbBooks } = await supabaseAdmin.from("books").select("id, slug, short_hu");
 
+  // Facts born under a fact_key the user has asked to suppress everywhere
+  // ("Minden hasonló elrejtése") should never surface, even freshly extracted.
+  const { data: suppressedRows } = await supabaseAdmin.from("suppressed_fact_keys").select("fact_key");
+  const suppressedKeys = new Set((suppressedRows ?? []).map((r) => r.fact_key));
+
   for (const file of files) {
     const [, bookSlug, chapterStr] = file.match(/^(.+)-(\d+)\.json$/) ?? [];
     if (!bookSlug) continue;
@@ -171,6 +176,7 @@ async function loadExtracted() {
         difficulty: f.difficulty ?? 3,
         confidence: f.confidence ?? 1.0,
         verified: (f.confidence ?? 1.0) >= 0.9,
+        suppressed: suppressedKeys.has(f.fact_key),
       }));
     if (factRows.length) {
       const { error } = await supabaseAdmin.from("facts").insert(factRows);

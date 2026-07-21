@@ -12,5 +12,6 @@ export interface ReviewCard {
   payload: McqPayload | ClozePayload | LocatePayload | NumericPayload | Record<string, unknown> | null;
   verse_ref: string | null;
   entity_id: number | null;
+  fact_id: number | null;
   state: PersistedCardState;
 }

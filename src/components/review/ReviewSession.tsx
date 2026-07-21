@@ -6,7 +6,7 @@ import { CardFace } from "@/components/review/CardFace";
 import { RatingButtons } from "@/components/review/RatingButtons";
 import { reviewCard, type FsrsRating } from "@/lib/fsrs/engine";
 import { queuePendingReview, flushPendingReviews } from "@/lib/db/sync";
-import { flagCardNotImportant } from "@/lib/actions/flag-card";
+import { flagCardNotImportant, suppressSimilarFacts } from "@/lib/actions/flag-card";
 import type { ReviewCard } from "@/lib/review/types";
 
 interface Props {
@@ -26,8 +26,25 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
   const [suggested, setSuggested] = useState<FsrsRating | undefined>(undefined);
   const [done, setDone] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
+  // Facts flagged mid-session — upcoming cards sharing one of these are
+  // skipped without being shown, closing the last leak: an already-loaded
+  // session still holding a sibling of a just-flagged fact.
+  const [hiddenFactIds, setHiddenFactIds] = useState<Set<number>>(new Set());
+  const [similarOffer, setSimilarOffer] = useState<{ factKey: string; label: string } | null>(null);
+  const [similarStatus, setSimilarStatus] = useState<"idle" | "loading" | "done">("idle");
   const startedAt = useRef(Date.now());
   const controls = useAnimation();
+
+  const isHidden = useCallback((c: ReviewCard | undefined, hidden: Set<number>) => !!c && c.fact_id != null && hidden.has(c.fact_id), []);
+
+  const findNextIndex = useCallback(
+    (from: number, hidden: Set<number>) => {
+      let i = from;
+      while (i < cards.length && isHidden(cards[i], hidden)) i++;
+      return i;
+    },
+    [cards, isHidden],
+  );
 
   const card = cards[index];
   const progress = cards.length ? Math.round((index / cards.length) * 100) : 0;
@@ -86,34 +103,56 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
       }
 
       controls.set({ x: 0, opacity: 1 });
-      if (index + 1 >= cards.length) {
+      const nextIdx = findNextIndex(index + 1, hiddenFactIds);
+      if (nextIdx >= cards.length) {
         setDone(true);
         onComplete?.({ correct: correctCount, total: cards.length });
       } else {
-        setIndex((i) => i + 1);
+        setIndex(nextIdx);
         setRevealed(false);
         setSuggested(undefined);
       }
     },
-    [card, controls, index, cards.length, mode, onComplete, correctCount],
+    [card, controls, index, cards.length, mode, onComplete, correctCount, findNextIndex, hiddenFactIds],
   );
 
-  // "Nem fontos" — retire the card everywhere and move on without a rating.
+  // "Nem fontos" — retire the fact everywhere and move on without a rating.
   const flagAndSkip = useCallback(() => {
     if (!card) return;
-    void flagCardNotImportant(card.id).catch(() => {
-      // best-effort: if offline/failed the card simply shows up again later
-    });
+    const flaggedFactId = card.fact_id;
+    void flagCardNotImportant(card.id)
+      .then((result) => {
+        if (result.factKey && result.factKeyLabel) {
+          setSimilarOffer({ factKey: result.factKey, label: result.factKeyLabel });
+          setSimilarStatus("idle");
+        }
+      })
+      .catch(() => {
+        // best-effort: if offline/failed the card simply shows up again later
+      });
+    if (flaggedFactId != null) {
+      setHiddenFactIds((prev) => new Set(prev).add(flaggedFactId));
+    }
     controls.set({ x: 0, opacity: 1 });
-    if (index + 1 >= cards.length) {
+    const hiddenAfterFlag = flaggedFactId != null ? new Set(hiddenFactIds).add(flaggedFactId) : hiddenFactIds;
+    const nextIdx = findNextIndex(index + 1, hiddenAfterFlag);
+    if (nextIdx >= cards.length) {
       setDone(true);
       onComplete?.({ correct: correctCount, total: cards.length });
     } else {
-      setIndex((i) => i + 1);
+      setIndex(nextIdx);
       setRevealed(false);
       setSuggested(undefined);
     }
-  }, [card, controls, index, cards.length, onComplete, correctCount]);
+  }, [card, controls, index, cards.length, onComplete, correctCount, findNextIndex, hiddenFactIds]);
+
+  const suppressSimilar = useCallback(() => {
+    if (!similarOffer || similarStatus === "loading") return;
+    setSimilarStatus("loading");
+    void suppressSimilarFacts(similarOffer.factKey)
+      .then(() => setSimilarStatus("done"))
+      .catch(() => setSimilarStatus("idle"));
+  }, [similarOffer, similarStatus]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -131,6 +170,12 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [revealed, handleReveal, rate]);
+
+  useEffect(() => {
+    if (!similarOffer) return;
+    const t = setTimeout(() => setSimilarOffer(null), 8000);
+    return () => clearTimeout(t);
+  }, [similarOffer]);
 
   const swipeThreshold = 100;
 
@@ -161,6 +206,32 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
       <p className="text-sm text-ink-faint">
         {index + 1} / {cards.length}
       </p>
+
+      {similarOffer && (
+        <div className="rounded-md border border-line-strong bg-surface p-3 text-sm">
+          {similarStatus === "done" ? (
+            <p className="text-good">Hasonló kérdések elrejtve.</p>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-ink-muted">
+                Elrejtve. Minden hasonló elrejtése: <span className="font-extrabold text-ink">«{similarOffer.label}»</span>?
+              </p>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  onClick={suppressSimilar}
+                  disabled={similarStatus === "loading"}
+                  className="font-extrabold text-accent underline underline-offset-4 disabled:opacity-50"
+                >
+                  Elrejtem mind
+                </button>
+                <button onClick={() => setSimilarOffer(null)} className="text-ink-faint underline underline-offset-4">
+                  Mégse
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <motion.div
         key={card.id}

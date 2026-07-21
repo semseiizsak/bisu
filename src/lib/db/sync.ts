@@ -7,6 +7,9 @@ export async function cacheCardsForOffline(cards: LocalCard[]): Promise<void> {
 
 export async function queuePendingReview(review: Omit<PendingReview, "local_id" | "synced">): Promise<void> {
   await db.pending_reviews.add({ ...review, synced: 0 });
+  // Dexie `put` replaces the whole row — read-modify so a flagged
+  // (suspended) card doesn't get silently un-retired by a review write.
+  const existing = await db.card_states.get(review.card_id);
   await db.card_states.put({
     card_id: review.card_id,
     stability: review.new_stability,
@@ -16,7 +19,7 @@ export async function queuePendingReview(review: Omit<PendingReview, "local_id" 
     reps: review.new_reps,
     lapses: review.new_lapses,
     state: review.new_state,
-    suspended: false,
+    suspended: existing?.suspended ?? false,
   });
   void flushPendingReviews();
 }
@@ -48,6 +51,9 @@ export async function flushPendingReviews(): Promise<{ pushed: number; failed: n
         });
         if (reviewError) throw reviewError;
 
+        // `suspended` deliberately omitted: Postgres upsert only touches
+        // supplied columns on conflict (and defaults to false on insert),
+        // so a flagged/suspended card's state isn't un-retired by a review.
         const { error: stateError } = await supabase.from("card_states").upsert({
           card_id: review.card_id,
           stability: review.new_stability,
@@ -57,7 +63,6 @@ export async function flushPendingReviews(): Promise<{ pushed: number; failed: n
           reps: review.new_reps,
           lapses: review.new_lapses,
           state: review.new_state,
-          suspended: false,
         });
         if (stateError) throw stateError;
 

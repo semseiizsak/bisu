@@ -18,8 +18,8 @@ const POLISHABLE_TYPES = new Set<CardType>(["recall", "reverse", "numeric", "mcq
  * keeps their progress, only the question's shape changes.
  */
 export async function maybeCreateVariant(db: DB, cardId: number): Promise<void> {
-  const { data: card } = await db.from("cards").select("id, type, fact_id, tags").eq("id", cardId).maybeSingle();
-  if (!card || card.fact_id == null) return;
+  const { data: card } = await db.from("cards").select("id, type, fact_id, tags, active").eq("id", cardId).maybeSingle();
+  if (!card || card.fact_id == null || !card.active) return;
 
   const { data: recentReviews } = await db
     .from("reviews")

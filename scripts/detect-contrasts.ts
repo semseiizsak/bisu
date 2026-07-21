@@ -26,6 +26,7 @@ async function main() {
     .from("facts")
     .select("id, entity_id, fact_key, fact_value, numeric_val, verse_ref, book_id, chapter")
     .eq("verified", true)
+    .eq("suppressed", false)
     .not("numeric_val", "is", null);
   const { data: entities } = await supabaseAdmin.from("entities").select("id, name_hu, importance, ref_count");
   const entityById = new Map((entities ?? []).map((e) => [e.id, e]));

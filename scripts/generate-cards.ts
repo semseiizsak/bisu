@@ -105,7 +105,8 @@ async function main() {
       supabaseAdmin
         .from("facts")
         .select("id, entity_id, fact_key, fact_value, numeric_val, unit, verse_ref, book_id, chapter")
-        .eq("verified", true),
+        .eq("verified", true)
+        .eq("suppressed", false),
       supabaseAdmin.from("books").select("id, slug, short_hu"),
       supabaseAdmin.from("timeline_events").select("id, label_hu, era, order_idx, verse_ref").order("order_idx"),
       supabaseAdmin.from("genealogy_edges").select("id, parent_id, child_id, line, verse_ref"),
