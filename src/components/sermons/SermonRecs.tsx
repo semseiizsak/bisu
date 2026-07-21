@@ -6,6 +6,10 @@ import { Card } from "@/components/ui/Card";
 interface Props {
   bookId: number;
   chapter: number;
+  /** Last chapter of the reading segment, when it spans more than one
+   * chapter (e.g. today's plan covers chapters 14–18) — lets topic
+   * derivation cover themes from the whole segment, not just `chapter`. */
+  chapterTo?: number;
   bookNameHu: string;
   focusNote?: string | null;
 }
@@ -13,9 +17,9 @@ interface Props {
 /** Async server component — kept out of the main data Promise.all and
  * wrapped in Suspense at call sites, since a cache-miss can mean a real
  * network round trip (AI topic call + per-preacher YouTube search). */
-export async function SermonRecs({ bookId, chapter, bookNameHu, focusNote }: Props) {
+export async function SermonRecs({ bookId, chapter, chapterTo, bookNameHu, focusNote }: Props) {
   const supabase = await createClient();
-  const recs = await getSermonRecs(supabase, bookId, chapter, bookNameHu, focusNote ?? null);
+  const recs = await getSermonRecs(supabase, bookId, chapter, bookNameHu, focusNote ?? null, chapterTo);
   if (recs.length === 0) return null;
 
   return (

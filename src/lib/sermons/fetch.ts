@@ -45,21 +45,26 @@ function matchesPreacher(item: YoutubeItem, tokens: string[]): boolean {
   return tokens.every((t) => haystack.includes(t));
 }
 
-const TOPIC_SYSTEM = `Bibliai fejezet fő témáit gyűjtöd ki rövid kulcsszavakban, amiket
+const TOPIC_SYSTEM = `Bibliai szakasz fő témáit gyűjtöd ki rövid kulcsszavakban, amiket
 YouTube-keresésre fogunk használni magyar nyelvű bibliai tanításokhoz. A
 kulcsszavak egy keresőmezőbe kerülnek egymás mellé, ezért KRITIKUS, hogy
 rövidek legyenek — egy hosszú, leíró kifejezésekből összefűzött lekérdezésre
 gyakorlatilag sosem talál a YouTube semmit.
 Szabályok:
-- 2-4 kulcsszó, MINDEGYIK 1, legfeljebb 2 szóból álljon.
+- 3-6 kulcsszó, MINDEGYIK 1, legfeljebb 2 szóból álljon.
+- Ha a szakasz több fejezetet ölel fel, törekedj rá, hogy a kulcsszavak
+  lefedjék a KÜLÖNBÖZŐ fejezetek eltérő témáit is, ne csak az elsőét —
+  például egy 5 fejezetes szakasznál ne mind az 1. fejezet szereplőiről
+  szóljon a lista.
 - Tulajdonnevek (szereplők, helyszínek) és önálló fogalmak — NE leíró
   kifejezések vagy tagmondatok.
-- Jó példák: "Melkisédek", "tized", "Ábrahám", "bűnbeesés", "özönvíz".
+- Jó példák: "Melkisédek", "tized", "Ábrahám", "közbenjárás", "bűnbeesés", "özönvíz".
 - Rossz példák (túl hosszúak, ne írj ilyet): "Ábrahám győzelme a királyok felett",
   "az ember bűnbeesése a kertben", "Lót megszabadítása Sodomából".
 - Válaszolj KIZÁRÓLAG ezzel a JSON formával: {"keywords": ["...", "..."]}`;
 
-async function deriveTopics(bookNameHu: string, chapter: number, focusNote: string | null): Promise<string[]> {
+async function deriveTopics(bookNameHu: string, chapterFrom: number, chapterTo: number, focusNote: string | null): Promise<string[]> {
+  const chapterLabel = chapterTo > chapterFrom ? `${chapterFrom}–${chapterTo}. fejezetek` : `${chapterFrom}. fejezet`;
   if (!process.env.OPENAI_API_KEY) return [bookNameHu, focusNote ?? ""].filter(Boolean);
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -68,7 +73,7 @@ async function deriveTopics(bookNameHu: string, chapter: number, focusNote: stri
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: TOPIC_SYSTEM },
-        { role: "user", content: `Könyv: ${bookNameHu} ${chapter}. fejezet${focusNote ? `\nFókusz: ${focusNote}` : ""}` },
+        { role: "user", content: `Könyv: ${bookNameHu} ${chapterLabel}${focusNote ? `\nFókusz: ${focusNote}` : ""}` },
       ],
     });
     const raw = completion.choices[0]?.message?.content ?? "{}";
@@ -79,7 +84,7 @@ async function deriveTopics(bookNameHu: string, chapter: number, focusNote: stri
           // clause instead of a short term — a query built from long phrases
           // reliably returns zero YouTube results (verified live).
           .filter((k): k is string => typeof k === "string" && k.trim().length > 0 && k.trim().split(/\s+/).length <= 2)
-          .slice(0, 4)
+          .slice(0, 6)
       : [];
     if (keywords.length) return keywords;
   } catch {
@@ -157,16 +162,24 @@ async function readCachedRecs(db: DB, bookId: number, chapter: number): Promise<
 }
 
 /**
- * Related-teachings lookup for a chapter, cached 7 days per (book, chapter).
- * `day_topics.generated_at` doubles as the "already tried this chapter"
- * marker so a chapter with zero matches doesn't get re-queried against the
- * YouTube API on every load. Returns [] (section stays hidden) whenever
- * YOUTUBE_API_KEY isn't configured yet.
+ * Related-teachings lookup for a chapter (or chapter range), cached 7 days
+ * per (book, chapterFrom). `day_topics.generated_at` doubles as the
+ * "already tried this chapter" marker so a chapter with zero matches
+ * doesn't get re-queried against the YouTube API on every load. Returns []
+ * (section stays hidden) whenever YOUTUBE_API_KEY isn't configured yet.
  */
-export async function getSermonRecs(db: DB, bookId: number, chapter: number, bookNameHu: string, focusNote: string | null): Promise<SermonRec[]> {
+export async function getSermonRecs(
+  db: DB,
+  bookId: number,
+  chapterFrom: number,
+  bookNameHu: string,
+  focusNote: string | null,
+  chapterTo: number = chapterFrom,
+): Promise<SermonRec[]> {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) return [];
 
+  const chapter = chapterFrom; // cache key — see doc comment above
   const { data: topicsRow } = await db.from("day_topics").select("keywords, generated_at").eq("book_id", bookId).eq("chapter", chapter).maybeSingle();
   if (topicsRow && isFresh(topicsRow.generated_at)) {
     return readCachedRecs(db, bookId, chapter);
@@ -181,7 +194,7 @@ export async function getSermonRecs(db: DB, bookId: number, chapter: number, boo
     return [];
   }
 
-  const keywords = await deriveTopics(bookNameHu, chapter, focusNote);
+  const keywords = await deriveTopics(bookNameHu, chapterFrom, chapterTo, focusNote);
 
   const key: string = apiKey; // narrow once — TS doesn't carry the early-return narrowing into the closure below
   type PreacherRow = NonNullable<typeof preachers>[number];
@@ -193,7 +206,7 @@ export async function getSermonRecs(db: DB, bookId: number, chapter: number, boo
   // mention the preacher (by name, in title or channel) before it's kept —
   // YouTube's relevance search readily returns videos from unrelated
   // channels that just happen to share the keyword text.
-  const searchKeywords = keywords.slice(0, 3);
+  const searchKeywords = keywords.slice(0, 4);
   const recs: SermonRec[] = [];
   const rows: Database["public"]["Tables"]["sermon_recs"]["Insert"][] = [];
   const seenVideoIds = new Set<string>();

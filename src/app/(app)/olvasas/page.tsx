@@ -67,6 +67,7 @@ export default async function ReadingPage() {
           <SermonRecs
             bookId={bookById.get(plan.segments[0].book_slug)!.id}
             chapter={plan.segments[0].ch_from}
+            chapterTo={plan.segments[0].ch_to}
             bookNameHu={bookById.get(plan.segments[0].book_slug)!.name_hu}
             focusNote={plan.focus_note}
           />

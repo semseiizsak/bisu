@@ -202,7 +202,13 @@ export default async function TodayPage() {
             </ButtonLink>
             {sermonBook && readingBlock?.reading && (
               <Suspense fallback={null}>
-                <SermonRecs bookId={sermonBook.id} chapter={readingBlock.reading.ch_from} bookNameHu={sermonBook.name_hu} focusNote={readingBlock.reading.focus_note} />
+                <SermonRecs
+                  bookId={sermonBook.id}
+                  chapter={readingBlock.reading.ch_from}
+                  chapterTo={readingBlock.reading.ch_to}
+                  bookNameHu={sermonBook.name_hu}
+                  focusNote={readingBlock.reading.focus_note}
+                />
               </Suspense>
             )}
           </>
