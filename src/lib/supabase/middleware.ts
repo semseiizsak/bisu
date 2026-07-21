@@ -46,7 +46,12 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
+  // API routes handle their own auth (session cookie, or a bearer secret for
+  // server-to-server callers like the Vercel Cron job hitting
+  // /api/pipeline/jit) — redirecting them to the /login HTML page instead of
+  // letting the route return a real status code would make them uncallable
+  // by anything that isn't a logged-in browser.
+  const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p)) || path.startsWith("/api/");
   const allowedEmail = process.env.ALLOWED_EMAIL?.toLowerCase();
 
   if (!user && !isPublic) {
