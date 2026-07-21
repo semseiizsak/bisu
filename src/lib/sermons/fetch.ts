@@ -51,11 +51,12 @@ kulcsszavak egy keresőmezőbe kerülnek egymás mellé, ezért KRITIKUS, hogy
 rövidek legyenek — egy hosszú, leíró kifejezésekből összefűzött lekérdezésre
 gyakorlatilag sosem talál a YouTube semmit.
 Szabályok:
-- 3-6 kulcsszó, MINDEGYIK 1, legfeljebb 2 szóból álljon.
-- Ha a szakasz több fejezetet ölel fel, törekedj rá, hogy a kulcsszavak
-  lefedjék a KÜLÖNBÖZŐ fejezetek eltérő témáit is, ne csak az elsőét —
-  például egy 5 fejezetes szakasznál ne mind az 1. fejezet szereplőiről
-  szóljon a lista.
+- MINDEGYIK kulcsszó 1, legfeljebb 2 szóból álljon.
+- Ha a szakasz több fejezetet ölel fel, MINDEN EGYES fejezetből emelj ki
+  legalább egy saját, arra a fejezetre jellemző témát — egy N fejezetes
+  szakasznál tehát legalább N kulcsszót adj, egyet-egyet fejezetenként (plusz
+  további átfogó témákat, ha van hely). Ne engedd, hogy a lista csak az első
+  1-2 fejezet témáival teljen meg.
 - Tulajdonnevek (szereplők, helyszínek) és önálló fogalmak — NE leíró
   kifejezések vagy tagmondatok.
 - Jó példák: "Melkisédek", "tized", "Ábrahám", "közbenjárás", "bűnbeesés", "özönvíz".
@@ -64,7 +65,8 @@ Szabályok:
 - Válaszolj KIZÁRÓLAG ezzel a JSON formával: {"keywords": ["...", "..."]}`;
 
 async function deriveTopics(bookNameHu: string, chapterFrom: number, chapterTo: number, focusNote: string | null): Promise<string[]> {
-  const chapterLabel = chapterTo > chapterFrom ? `${chapterFrom}–${chapterTo}. fejezetek` : `${chapterFrom}. fejezet`;
+  const chapterCount = chapterTo - chapterFrom + 1;
+  const chapterLabel = chapterTo > chapterFrom ? `${chapterFrom}–${chapterTo}. fejezetek (${chapterCount} fejezet)` : `${chapterFrom}. fejezet`;
   if (!process.env.OPENAI_API_KEY) return [bookNameHu, focusNote ?? ""].filter(Boolean);
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -84,7 +86,7 @@ async function deriveTopics(bookNameHu: string, chapterFrom: number, chapterTo: 
           // clause instead of a short term — a query built from long phrases
           // reliably returns zero YouTube results (verified live).
           .filter((k): k is string => typeof k === "string" && k.trim().length > 0 && k.trim().split(/\s+/).length <= 2)
-          .slice(0, 6)
+          .slice(0, Math.max(6, chapterCount + 2))
       : [];
     if (keywords.length) return keywords;
   } catch {
@@ -205,21 +207,25 @@ export async function getSermonRecs(
   // good results when tried by hand. Each hit is then required to actually
   // mention the preacher (by name, in title or channel) before it's kept —
   // YouTube's relevance search readily returns videos from unrelated
-  // channels that just happen to share the keyword text.
-  const searchKeywords = keywords.slice(0, 4);
-  const recs: SermonRec[] = [];
+  // channels that just happen to share the keyword text. Search every
+  // derived keyword (not just the first few) — for a multi-chapter reading
+  // segment, a chapter's only distinguishing theme can legitimately be the
+  // last keyword in the list.
+  const searchKeywords = keywords;
+  const recsByPreacher: SermonRec[][] = [];
   const rows: Database["public"]["Tables"]["sermon_recs"]["Insert"][] = [];
   const seenVideoIds = new Set<string>();
 
   for (const p of preachers as PreacherRow[]) {
     const tokens = nameTokens(p.name);
+    const preacherRecs: SermonRec[] = [];
     for (const kw of searchKeywords) {
       const items = await searchYoutube(`${kw} ${p.query_modifier}`.trim(), p.channel_id, key);
       for (const it of items) {
         if (seenVideoIds.has(it.video_id)) continue;
         if (!p.channel_id && !matchesPreacher(it, tokens)) continue;
         seenVideoIds.add(it.video_id);
-        recs.push({ ...it, preacher_name: p.name });
+        preacherRecs.push({ ...it, preacher_name: p.name });
         rows.push({
           book_id: bookId,
           chapter,
@@ -233,6 +239,7 @@ export async function getSermonRecs(
         });
       }
     }
+    recsByPreacher.push(preacherRecs);
   }
 
   await Promise.all([
@@ -240,5 +247,15 @@ export async function getSermonRecs(
     rows.length ? admin.from("sermon_recs").upsert(rows, { onConflict: "book_id,chapter,video_id" }) : Promise.resolve(),
   ]);
 
-  return recs.slice(0, 10);
+  // Round-robin across preachers rather than exhausting one before the next
+  // — a preacher earlier in the list otherwise crowds the whole top-10 out
+  // even when every other preacher also has good, relevant matches.
+  const recs: SermonRec[] = [];
+  for (let i = 0; recs.length < 10 && recsByPreacher.some((list) => i < list.length); i++) {
+    for (const list of recsByPreacher) {
+      if (i < list.length) recs.push(list[i]);
+      if (recs.length >= 10) break;
+    }
+  }
+  return recs;
 }
