@@ -2,7 +2,6 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import type { Database } from "@/lib/supabase/types";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 type DB = SupabaseClient<Database>;
 
@@ -213,7 +212,7 @@ export async function getSermonRecs(
   }
 
   const { data: preachers } = await db.from("preachers").select("*").eq("enabled", true);
-  const admin = createAdminClient();
+  const admin = db;
   const now = new Date().toISOString();
 
   if (!preachers?.length) {

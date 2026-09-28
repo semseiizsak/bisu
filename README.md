@@ -3,7 +3,12 @@
 Personal-use PWA for reading through the Bible (Károli 1908) in a year and
 actually remembering it: every chapter comes with a short study note and a
 handful of questions worth asking, drilled with FSRS spaced repetition.
-Single-user app.
+
+Single-user app with **no login**: the deployment URL is the only gate.
+All database access goes through the server with the service role key;
+the browser never holds a Supabase key and RLS stays on for every table.
+If the URL leaks, anyone can use and edit the data — put Vercel password
+protection in front of it if that matters.
 
 ## Stack
 

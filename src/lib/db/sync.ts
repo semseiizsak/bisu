@@ -1,5 +1,5 @@
 import { db, type LocalCard, type PendingReview } from "@/lib/db/dexie";
-import { createClient } from "@/lib/supabase/client";
+import { pushReview } from "@/lib/actions/sync-reviews";
 
 export async function cacheCardsForOffline(cards: LocalCard[]): Promise<void> {
   await db.cards.bulkPut(cards);
@@ -26,7 +26,7 @@ export async function queuePendingReview(review: Omit<PendingReview, "local_id" 
 
 let flushing = false;
 
-/** Pushes queued offline reviews to Supabase. Safe to call repeatedly — no-ops while offline or already running. */
+/** Pushes queued offline reviews to the server. Safe to call repeatedly — no-ops while offline or already running. */
 export async function flushPendingReviews(): Promise<{ pushed: number; failed: number }> {
   if (flushing) return { pushed: 0, failed: 0 };
   if (typeof navigator !== "undefined" && !navigator.onLine) return { pushed: 0, failed: 0 };
@@ -35,12 +35,11 @@ export async function flushPendingReviews(): Promise<{ pushed: number; failed: n
   let failed = 0;
 
   try {
-    const supabase = createClient();
     const pending = await db.pending_reviews.where("synced").equals(0).toArray();
 
     for (const review of pending) {
       try {
-        const { error: reviewError } = await supabase.from("reviews").insert({
+        await pushReview({
           card_id: review.card_id,
           rating: review.rating,
           state_before: review.state_before,
@@ -48,24 +47,13 @@ export async function flushPendingReviews(): Promise<{ pushed: number; failed: n
           duration_ms: review.duration_ms,
           mode: review.mode,
           reviewed_at: review.reviewed_at,
+          new_stability: review.new_stability,
+          new_difficulty: review.new_difficulty,
+          new_due_at: review.new_due_at,
+          new_state: review.new_state,
+          new_reps: review.new_reps,
+          new_lapses: review.new_lapses,
         });
-        if (reviewError) throw reviewError;
-
-        // `suspended` deliberately omitted: Postgres upsert only touches
-        // supplied columns on conflict (and defaults to false on insert),
-        // so a flagged/suspended card's state isn't un-retired by a review.
-        const { error: stateError } = await supabase.from("card_states").upsert({
-          card_id: review.card_id,
-          stability: review.new_stability,
-          difficulty: review.new_difficulty,
-          due_at: review.new_due_at,
-          last_review: review.reviewed_at,
-          reps: review.new_reps,
-          lapses: review.new_lapses,
-          state: review.new_state,
-        });
-        if (stateError) throw stateError;
-
         if (review.local_id != null) {
           await db.pending_reviews.update(review.local_id, { synced: 1 });
         }

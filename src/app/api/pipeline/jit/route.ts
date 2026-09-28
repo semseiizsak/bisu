@@ -1,21 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { runJitPipeline, type ChapterTarget } from "@/lib/pipeline/run";
 import { BOOKS } from "@/lib/content/books";
 
 export const maxDuration = 60;
-
-async function isAuthorized(request: Request): Promise<boolean> {
-  const authHeader = request.headers.get("authorization");
-  if (process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`) return true;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return !!user;
-}
 
 function parseTargets(body: unknown): ChapterTarget[] {
   const raw = (body as { chapters?: unknown } | null)?.chapters;
@@ -34,16 +22,17 @@ function parseTargets(body: unknown): ChapterTarget[] {
  * Vercel cron target (see vercel.json) and on-demand generation from the
  * reader. Body may carry explicit chapters:
  *   { "chapters": [{ "book": "genesis", "chapter": 4 }] }
- * Manual catch-up: curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://.../api/pipeline/jit
+ * Open like the rest of the app; cost is bounded because every chapter is
+ * generated at most once (extraction_runs), so the worst an outsider can
+ * do is generate content early.
  */
 export async function POST(request: Request) {
-  if (!(await isAuthorized(request))) return new NextResponse(null, { status: 401 });
   if (!process.env.OPENAI_API_KEY) return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
 
   const body = await request.json().catch(() => null);
   const explicit = parseTargets(body);
 
-  const admin = createAdminClient();
+  const admin = await createClient();
   try {
     const summary = await runJitPipeline(admin, process.env.OPENAI_API_KEY, explicit);
     return NextResponse.json(summary);

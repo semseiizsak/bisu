@@ -3,16 +3,6 @@
 import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-
-async function requireUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("unauthenticated");
-  return supabase;
-}
 
 export async function createManualCard(input: {
   prompt: string;
@@ -22,12 +12,7 @@ export async function createManualCard(input: {
   chapter: number;
   verse_ref: string;
 }) {
-  await requireUser();
-
-  // `cards` is service-role-only by design (migration 0005) — the cookie
-  // client can read it but not write it, so manual card creation must go
-  // through the admin client after the auth check above.
-  const admin = createAdminClient();
+  const admin = await createClient();
   const { data: card, error } = await admin
     .from("cards")
     .insert({
@@ -83,8 +68,6 @@ szövegrészletből. Szabályok:
 /** Drafts a question + answer from a selected scripture excerpt; the user
  * edits both before saving. Never writes anything itself. */
 export async function suggestCard(input: { text: string; verseRef: string }): Promise<CardSuggestion> {
-  await requireUser();
-
   const text = input.text.trim().slice(0, 1200);
   if (text.length < 3) throw new Error("empty selection");
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY missing");

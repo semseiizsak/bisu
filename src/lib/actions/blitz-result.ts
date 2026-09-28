@@ -9,12 +9,8 @@ import { ensureDailyQuests } from "@/lib/quests/progress";
  * derived from `reviews`. Best-effort: a failed/offline call just means the
  * quest (if it was in today's rotation) stays incomplete until re-earned. */
 export async function recordBlitzResult(hits: number, total: number): Promise<void> {
+  if (total <= 0 || hits < total) return;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || total <= 0 || hits < total) return;
-
   const dayIdx = await currentDayIndex(supabase);
 
   await ensureDailyQuests(supabase, dayIdx);

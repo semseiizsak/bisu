@@ -2,15 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-
-async function requireUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("unauthenticated");
-}
 
 /**
  * The post-reading gate: after a chapter, every generated question is shown
@@ -20,33 +11,30 @@ async function requireUser() {
  * looked at".
  */
 export async function setQuestionKept(cardId: number, kept: boolean): Promise<void> {
-  await requireUser();
-  const admin = createAdminClient();
+  const supabase = await createClient();
   const now = new Date().toISOString();
 
-  const { error: cardError } = await admin
+  const { error: cardError } = await supabase
     .from("cards")
     .update(kept ? { active: true, reviewed_at: now } : { active: false, reviewed_at: now })
     .eq("id", cardId);
   if (cardError) throw cardError;
 
-  const { error: stateError } = await admin.from("card_states").update({ suspended: !kept }).eq("card_id", cardId);
+  const { error: stateError } = await supabase.from("card_states").update({ suspended: !kept }).eq("card_id", cardId);
   if (stateError) throw stateError;
 }
 
 /** "Nem fontos" inside the quiz: retire this one card and move on. */
 export async function flagCardNotImportant(cardId: number): Promise<void> {
-  await requireUser();
-  const admin = createAdminClient();
-  const { error: cardError } = await admin.from("cards").update({ active: false, reviewed_at: new Date().toISOString() }).eq("id", cardId);
+  const supabase = await createClient();
+  const { error: cardError } = await supabase.from("cards").update({ active: false, reviewed_at: new Date().toISOString() }).eq("id", cardId);
   if (cardError) throw cardError;
-  const { error: stateError } = await admin.from("card_states").update({ suspended: true }).eq("card_id", cardId);
+  const { error: stateError } = await supabase.from("card_states").update({ suspended: true }).eq("card_id", cardId);
   if (stateError) throw stateError;
 }
 
 /** Marks the plan day's reading as done (moves the plan forward). */
 export async function markDayRead(dayIdx: number, minutes: number): Promise<void> {
-  await requireUser();
   const supabase = await createClient();
   const { error } = await supabase.from("reading_log").upsert({ day_idx: dayIdx, completed_at: new Date().toISOString(), minutes });
   if (error) throw error;

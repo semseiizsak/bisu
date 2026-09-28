@@ -2,7 +2,6 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import type { Database } from "@/lib/supabase/types";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { computeStreak } from "@/lib/streak/compute";
 import { BOOKS } from "@/lib/content/books";
 import { ERA_LABELS } from "@/lib/content/eras";
@@ -123,8 +122,7 @@ export async function getOrGenerateCoachReport(db: DB, now: Date = new Date()): 
   const body = completion.choices[0]?.message?.content?.trim();
   if (!body) return null;
 
-  const admin = createAdminClient();
-  const { data: saved, error } = await admin
+  const { data: saved, error } = await db
     .from("coach_reports")
     .upsert({ week_start: weekStart, body, stats: stats as unknown as Record<string, unknown> }, { onConflict: "week_start" })
     .select("week_start, body")
