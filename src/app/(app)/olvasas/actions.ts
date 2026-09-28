@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { checkAndAwardBadges } from "@/lib/badges/check";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -115,16 +114,4 @@ export async function suggestCard(input: { text: string; verseRef: string }): Pr
     : [];
 
   return { question, answer, answer_alt };
-}
-
-export async function markDayRead(day_idx: number, minutes: number) {
-  const supabase = await requireUser();
-  const { error } = await supabase.from("reading_log").upsert({
-    day_idx,
-    completed_at: new Date().toISOString(),
-    minutes,
-  });
-  if (error) throw error;
-  revalidatePath("/olvasas");
-  await checkAndAwardBadges(supabase);
 }

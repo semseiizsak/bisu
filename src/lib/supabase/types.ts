@@ -104,11 +104,25 @@ type DayTopicsRow = {
 type ExtractionRunsRow = {
   book_slug: string;
   chapter: number;
+  kind: string;
   status: "done" | "error";
   fact_count: number;
   error: string | null;
   model: string;
   created_at: string;
+};
+
+type ChapterNotesRow = {
+  book_id: number;
+  chapter: number;
+  summary: string;
+  context: string;
+  key_verse_ref: string | null;
+  key_verse_why: string | null;
+  cross_refs: { ref: string; why: string }[];
+  themes: string[];
+  model: string;
+  generated_at: string;
 };
 
 type SermonRecsRow = {
@@ -172,6 +186,8 @@ type CardsRow = {
   source: string;
   active: boolean;
   created_at: string;
+  kind: string | null;
+  reviewed_at: string | null;
 };
 
 type CardStatesRow = {
@@ -249,6 +265,8 @@ type SettingsRow = {
   new_cards_per_day: number;
   reading_speed_wpm: number;
   timezone: string;
+  /** Legacy calendar anchor. The day index is now progress-based (see
+   * src/lib/session/current-day.ts); the column is kept but unused. */
   program_start_date: string;
 };
 
@@ -286,6 +304,7 @@ export interface Database {
       >;
       coach_reports: Table<CoachReportsRow, Pick<CoachReportsRow, "week_start" | "body" | "stats"> & Partial<CoachReportsRow>>;
       extraction_runs: Table<ExtractionRunsRow, Pick<ExtractionRunsRow, "book_slug" | "chapter" | "status" | "model"> & Partial<ExtractionRunsRow>>;
+      chapter_notes: Table<ChapterNotesRow, Pick<ChapterNotesRow, "book_id" | "chapter" | "summary" | "context" | "model"> & Partial<ChapterNotesRow>>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

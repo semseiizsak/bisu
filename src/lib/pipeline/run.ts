@@ -1,59 +1,47 @@
 import OpenAI from "openai";
+import pLimit from "p-limit";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
-import { BOOKS } from "@/lib/content/books";
-import { dayIndexForDate } from "@/lib/session/day-index";
-import { extractChapterFacts, loadExtractedChapter } from "@/lib/pipeline/extract";
-import { generateCards } from "@/lib/pipeline/generate";
-import { polishPendingCards } from "@/lib/pipeline/polish";
+import { currentDayIndex } from "@/lib/session/current-day";
+import { generateChapterContent, loadChapterContent, questionModel } from "@/lib/pipeline/questions";
 
 type DB = SupabaseClient<Database>;
 
-const LOOKAHEAD_DAYS = 4; // today .. today+3
-const MAX_CHAPTERS_PER_RUN = 2;
-const WALL_CLOCK_BUDGET_MS = 45_000; // self-cap under the route's 60s maxDuration
-const MODEL = "gpt-4o-mini";
+export const PIPELINE_KIND = "questions";
+const LOOKAHEAD_DAYS = 4; // today .. today+3 in the plan
+const MAX_CHAPTERS_PER_RUN = 10;
+const CONCURRENCY = 3;
+const WALL_CLOCK_BUDGET_MS = 45_000; // under the route's 60s maxDuration
 
-interface ChapterResult {
+export interface ChapterTarget {
   book_slug: string;
   chapter: number;
-  status: "done" | "error" | "skipped_time_budget";
-  factCount?: number;
+}
+
+export interface ChapterResult extends ChapterTarget {
+  status: "done" | "error" | "skipped_time_budget" | "already_done";
+  cardsCreated?: number;
+  rejected?: number;
   error?: string;
 }
 
-export interface JitSummary {
-  chaptersAttempted: ChapterResult[];
+export interface PipelineSummary {
+  chapters: ChapterResult[];
   cardsCreated: number;
-  cardsPolished: number;
 }
 
-/**
- * Expands the reading plan's next few days into their uncovered chapters,
- * extracts up to MAX_CHAPTERS_PER_RUN of them (one OpenAI call each), loads
- * the results straight into facts/entities (no filesystem — extraction_runs
- * is the resumability layer), then re-runs the deterministic card generator
- * and the polish pass so new content is playable the same day it's added.
- * Every chapter attempt gets an extraction_runs row regardless of outcome,
- * so a failure doesn't get retried forever.
- */
-export async function runJitPipeline(admin: DB, openaiApiKey: string, now: Date = new Date()): Promise<JitSummary> {
-  const startedAt = Date.now();
-  const summary: JitSummary = { chaptersAttempted: [], cardsCreated: 0, cardsPolished: 0 };
-
-  const { data: settings } = await admin.from("settings").select("program_start_date").eq("id", 1).maybeSingle();
-  const programStart = settings?.program_start_date ?? now.toISOString().slice(0, 10);
-  const todayIdx = dayIndexForDate(programStart, now);
-
+/** Chapters in the reading plan window that have no question run yet. */
+export async function upcomingUncoveredChapters(admin: DB, lookaheadDays: number = LOOKAHEAD_DAYS): Promise<ChapterTarget[]> {
+  const todayIdx = await currentDayIndex(admin);
   const { data: planRows } = await admin
     .from("reading_plan")
     .select("day_idx, segments")
     .gte("day_idx", todayIdx)
-    .lt("day_idx", todayIdx + LOOKAHEAD_DAYS)
+    .lt("day_idx", todayIdx + lookaheadDays)
     .order("day_idx");
 
   const seen = new Set<string>();
-  const targets: { book_slug: string; chapter: number }[] = [];
+  const targets: ChapterTarget[] = [];
   for (const plan of planRows ?? []) {
     for (const seg of plan.segments) {
       for (let ch = seg.ch_from; ch <= seg.ch_to; ch++) {
@@ -64,79 +52,110 @@ export async function runJitPipeline(admin: DB, openaiApiKey: string, now: Date 
       }
     }
   }
-  if (targets.length === 0) return summary;
+  return filterUncovered(admin, targets);
+}
 
+export async function filterUncovered(admin: DB, targets: ChapterTarget[]): Promise<ChapterTarget[]> {
+  if (targets.length === 0) return [];
   const { data: alreadyRun } = await admin
     .from("extraction_runs")
     .select("book_slug, chapter")
+    .eq("kind", PIPELINE_KIND)
     .in("book_slug", Array.from(new Set(targets.map((t) => t.book_slug))));
-  const doneKeys = new Set((alreadyRun ?? []).map((r) => `${r.book_slug}:${r.chapter}`));
+  const done = new Set((alreadyRun ?? []).map((r) => `${r.book_slug}:${r.chapter}`));
+  return targets.filter((t) => !done.has(`${t.book_slug}:${t.chapter}`));
+}
 
-  const uncovered = targets.filter((t) => !doneKeys.has(`${t.book_slug}:${t.chapter}`)).slice(0, MAX_CHAPTERS_PER_RUN);
-  if (uncovered.length === 0) return summary;
+/**
+ * Generates study notes + questions for the given chapters. Every attempt
+ * gets an extraction_runs row (kind = 'questions') so a failure isn't
+ * retried forever; delete the row (or pass force) to regenerate.
+ */
+export async function generateForChapters(
+  admin: DB,
+  openai: OpenAI,
+  targets: ChapterTarget[],
+  opts: { wallClockMs?: number; concurrency?: number; force?: boolean; onChapter?: (r: ChapterResult) => void } = {},
+): Promise<PipelineSummary> {
+  const startedAt = Date.now();
+  const wallClock = opts.wallClockMs ?? WALL_CLOCK_BUDGET_MS;
+  const limit = pLimit(opts.concurrency ?? CONCURRENCY);
+  const model = questionModel();
+  const summary: PipelineSummary = { chapters: [], cardsCreated: 0 };
 
-  const { data: dbBooks } = await admin.from("books").select("id, slug");
-  const bookIdBySlug = new Map((dbBooks ?? []).map((b) => [b.slug, b.id]));
+  const { data: dbBooks } = await admin.from("books").select("id, slug, short_hu, name_hu, order_idx");
+  const bookBySlug = new Map((dbBooks ?? []).map((b) => [b.slug, b]));
 
-  const openai = new OpenAI({ apiKey: openaiApiKey });
-
-  async function recordRun(target: { book_slug: string; chapter: number }, status: "done" | "error", extra: { fact_count?: number; error?: string }) {
-    await admin.from("extraction_runs").insert({
-      book_slug: target.book_slug,
-      chapter: target.chapter,
-      status,
-      fact_count: extra.fact_count ?? 0,
-      error: extra.error ?? null,
-      model: MODEL,
-    });
+  const pending = opts.force ? targets : await filterUncovered(admin, targets);
+  for (const t of targets) {
+    if (!pending.includes(t)) summary.chapters.push({ ...t, status: "already_done" });
   }
 
-  for (const target of uncovered) {
-    if (Date.now() - startedAt > WALL_CLOCK_BUDGET_MS) {
-      summary.chaptersAttempted.push({ ...target, status: "skipped_time_budget" });
-      continue;
-    }
-
-    const bookDef = BOOKS.find((b) => b.slug === target.book_slug);
-    const bookId = bookIdBySlug.get(target.book_slug);
-    if (!bookDef || !bookId) {
-      await recordRun(target, "error", { error: "book not found" });
-      summary.chaptersAttempted.push({ ...target, status: "error", error: "book not found" });
-      continue;
-    }
-
-    const { data: verses } = await admin.from("verses").select("verse, text").eq("book_id", bookId).eq("chapter", target.chapter).order("verse");
-    if (!verses?.length) {
-      await recordRun(target, "error", { error: "no verses in DB" });
-      summary.chaptersAttempted.push({ ...target, status: "error", error: "no verses in DB" });
-      continue;
-    }
-
-    try {
-      const raw = await extractChapterFacts(openai, bookDef.short_hu, bookDef.name_hu, target.chapter, verses);
-      const { factCount, skipped } = await loadExtractedChapter(admin, bookId, target.chapter, raw);
-      if (skipped) {
-        await recordRun(target, "error", { error: skipped });
-        summary.chaptersAttempted.push({ ...target, status: "error", error: skipped });
-      } else {
-        await recordRun(target, "done", { fact_count: factCount });
-        summary.chaptersAttempted.push({ ...target, status: "done", factCount });
-      }
-    } catch (err) {
-      const message = (err instanceof Error ? err.message : String(err)).slice(0, 500);
-      await recordRun(target, "error", { error: message });
-      summary.chaptersAttempted.push({ ...target, status: "error", error: message });
-    }
+  async function recordRun(target: ChapterTarget, status: "done" | "error", extra: { fact_count?: number; error?: string }) {
+    await admin.from("extraction_runs").upsert(
+      {
+        book_slug: target.book_slug,
+        chapter: target.chapter,
+        kind: PIPELINE_KIND,
+        status,
+        fact_count: extra.fact_count ?? 0,
+        error: extra.error ?? null,
+        model,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: "book_slug,chapter,kind" },
+    );
   }
 
-  if (summary.chaptersAttempted.some((c) => c.status === "done")) {
-    const { cardsCreated } = await generateCards(admin);
-    summary.cardsCreated = cardsCreated;
-    if (cardsCreated > 0) {
-      const { polished } = await polishPendingCards(admin, openaiApiKey);
-      summary.cardsPolished = polished;
-    }
-  }
+  await Promise.all(
+    pending.map((target) =>
+      limit(async () => {
+        const push = (r: ChapterResult) => {
+          summary.chapters.push(r);
+          opts.onChapter?.(r);
+        };
+        if (Date.now() - startedAt > wallClock) {
+          push({ ...target, status: "skipped_time_budget" });
+          return;
+        }
+        const book = bookBySlug.get(target.book_slug);
+        if (!book) {
+          await recordRun(target, "error", { error: "book not found" });
+          push({ ...target, status: "error", error: "book not found" });
+          return;
+        }
+        const { data: verses } = await admin.from("verses").select("verse, text").eq("book_id", book.id).eq("chapter", target.chapter).order("verse");
+        if (!verses?.length) {
+          await recordRun(target, "error", { error: "no verses in DB" });
+          push({ ...target, status: "error", error: "no verses in DB" });
+          return;
+        }
+        try {
+          const raw = await generateChapterContent(openai, book.name_hu, book.short_hu, target.chapter, verses, model);
+          const loaded = await loadChapterContent(admin, book, target.chapter, raw, model);
+          await recordRun(target, "done", { fact_count: loaded.cardsCreated });
+          summary.cardsCreated += loaded.cardsCreated;
+          push({ ...target, status: "done", cardsCreated: loaded.cardsCreated, rejected: loaded.report.rejected.length });
+        } catch (err) {
+          const message = (err instanceof Error ? err.message : String(err)).slice(0, 500);
+          await recordRun(target, "error", { error: message });
+          push({ ...target, status: "error", error: message });
+        }
+      }),
+    ),
+  );
 
   return summary;
+}
+
+/**
+ * Cron / on-demand entry point: covers the next few days of the reading
+ * plan, or the explicitly requested chapters (from the reader, when someone
+ * opens a chapter whose questions don't exist yet).
+ */
+export async function runJitPipeline(admin: DB, openaiApiKey: string, explicit?: ChapterTarget[]): Promise<PipelineSummary> {
+  const openai = new OpenAI({ apiKey: openaiApiKey });
+  const targets = explicit?.length ? explicit : await upcomingUncoveredChapters(admin);
+  if (targets.length === 0) return { chapters: [], cardsCreated: 0 };
+  return generateForChapters(admin, openai, targets.slice(0, MAX_CHAPTERS_PER_RUN));
 }

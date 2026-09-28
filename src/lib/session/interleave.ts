@@ -1,102 +1,61 @@
 import type { ReviewCard } from "@/lib/review/types";
-import type { McqPayload } from "@/lib/content/card-payloads";
+import type { McqPayload, QuestionPayload } from "@/lib/content/card-payloads";
 
-/** How a card will be presented in the daily quiz — used both for variety
- * constraints (no long same-format runs) and for on-the-fly MCQ synthesis. */
-export type Presentation = "mcq" | "numeric" | "typed" | "reveal";
+/** How a card will be presented in the quiz. */
+export type Presentation = "mcq" | "typed" | "reveal";
 
-const LONG_ANSWER = 24; // mirrors CardFace's typed-vs-reveal threshold
-const TEXT_TYPES = new Set(["recall", "reverse", "chain", "cloze", "locate"]);
+const LONG_ANSWER = 28; // mirrors CardFace's typed-vs-reveal threshold
+const TEXT_TYPES = new Set(["recall", "chain", "cloze", "locate"]);
+
+/** A question card is a "choose" card until it has been answered correctly
+ * twice; after that it becomes a "recall" card. Recognition first, then
+ * production — instead of typing exact abbreviations from day one. */
+const MCQ_UNTIL_REPS = 2;
 
 const fold = (s: string) =>
   s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .trim();
 
-const isNumericAnswer = (a: string) => /^\d+([.,]\d+)?$/.test(a.trim());
-
-function seededRandom(seed: number): number {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
+export function questionOptions(card: ReviewCard): string[] | null {
+  if (card.type === "question") {
+    const options = (card.payload as QuestionPayload | null)?.options;
+    if (options?.length) return Array.from(new Set(options));
+    if (card.distractors.length >= 3) return [card.answer, ...card.distractors];
+    return null;
+  }
+  if (card.type === "mcq") {
+    const options = (card.payload as McqPayload | null)?.options;
+    return options?.length ? Array.from(new Set(options)) : null;
+  }
+  return null;
 }
 
 export function basePresentation(card: ReviewCard): Presentation {
+  if (card.type === "question") {
+    const knowsIt = card.state.reps >= MCQ_UNTIL_REPS && card.state.lapses === 0 && (card.state.stability ?? 0) >= 3;
+    if (!knowsIt && questionOptions(card)) return "mcq";
+    return card.answer.length > LONG_ANSWER ? "reveal" : "typed";
+  }
   if (card.type === "mcq") return "mcq";
-  if (card.type === "numeric") return "numeric";
   if (TEXT_TYPES.has(card.type)) return card.answer.length > LONG_ANSWER ? "reveal" : "typed";
   return "reveal";
 }
 
 /**
- * Synthesizes MCQ options for a typed-answer card from the other answers in
- * the same session. The pool is topically coherent (same day, same books),
- * candidates are constrained to the same kind of answer (numeric vs name),
- * deduped by folded text, and the pick is deterministic per card id.
- * Returns null when fewer than 3 plausible distractors exist.
- */
-export function synthesizeOptions(card: ReviewCard, pool: ReviewCard[]): string[] | null {
-  const answer = card.answer.trim();
-  if (answer.length > LONG_ANSWER) return null;
-  const numeric = isNumericAnswer(answer);
-  const own = fold(answer);
-
-  const seen = new Set<string>([own]);
-  let candidates: string[] = [];
-  for (const other of pool) {
-    if (other.id === card.id) continue;
-    const a = other.answer.trim();
-    if (!a || a.length > LONG_ANSWER) continue;
-    if (isNumericAnswer(a) !== numeric) continue;
-    const f = fold(a);
-    if (seen.has(f)) continue;
-    seen.add(f);
-    candidates.push(a);
-  }
-  if (candidates.length < 3) return null;
-
-  // Prefer answers sharing the unit word ("600 esztendő" gets other
-  // esztendő values, not "15 sing") when enough of them exist.
-  const lastWord = (s: string) => fold(s.split(/\s+/).at(-1) ?? "");
-  const unit = lastWord(answer);
-  if (unit && !/^\d/.test(unit)) {
-    const sameUnit = candidates.filter((c) => lastWord(c) === unit);
-    if (sameUnit.length >= 3) candidates = sameUnit;
-  }
-
-  const picked: string[] = [];
-  const available = [...candidates];
-  for (let i = 0; picked.length < 3 && available.length > 0; i++) {
-    const idx = Math.floor(seededRandom(card.id * 31 + i) * available.length);
-    picked.push(available.splice(idx, 1)[0]);
-  }
-
-  const options = [answer, ...picked];
-  for (let i = options.length - 1; i > 0; i--) {
-    const j = Math.floor(seededRandom(card.id * 17 + i) * (i + 1));
-    [options[i], options[j]] = [options[j], options[i]];
-  }
-  return options;
-}
-
-/**
- * Builds the per-card presentation plan for a session: real MCQ cards keep
- * their options; roughly half of the eligible typed cards (deterministic by
- * id parity) get synthesized options so the quiz alternates between choosing
- * and recalling instead of being typing all the way down.
+ * Per-card presentation plan for a session: which cards get options. Only
+ * cards that carry real, same-kind distractors are ever shown as multiple
+ * choice — the old "synthesize options from the other cards' answers"
+ * trick produced options like "600 esztendő / Éva / Nód földe".
  */
 export function buildMcqOptionsByCard(cards: ReviewCard[]): Map<number, string[]> {
   const map = new Map<number, string[]>();
   for (const card of cards) {
-    if (card.type === "mcq") {
-      const options = (card.payload as McqPayload | null)?.options;
-      if (options?.length) map.set(card.id, Array.from(new Set(options)));
-      continue;
-    }
-    if (basePresentation(card) !== "typed" || card.id % 2 !== 0) continue;
-    const synthesized = synthesizeOptions(card, cards);
-    if (synthesized) map.set(card.id, synthesized);
+    if (basePresentation(card) !== "mcq") continue;
+    const options = questionOptions(card);
+    if (options) map.set(card.id, options);
   }
   return map;
 }
@@ -110,7 +69,7 @@ function conflictsAt(cards: ReviewCard[], i: number, presentations: Presentation
   if (i === 0) return false;
   const cur = cards[i];
   const prev = cards[i - 1];
-  if (cur.entity_id != null && cur.entity_id === prev.entity_id) return true;
+  if (cur.book_id != null && cur.book_id === prev.book_id && cur.chapter != null && cur.chapter === prev.chapter) return true;
   if (fold(cur.answer) === fold(prev.answer)) return true;
   // no more than 3 of the same presentation in a row
   if (i >= 3) {
@@ -121,10 +80,8 @@ function conflictsAt(cards: ReviewCard[], i: number, presentations: Presentation
 }
 
 /**
- * Greedy reorder so consecutive cards never share an entity or an answer,
- * and no presentation format runs longer than 3 — same-fact clusters showing
- * up back to back ("ugyanazok a válaszok egymás után") was one of the
- * owner's core complaints.
+ * Greedy reorder so consecutive cards never come from the same chapter or
+ * share an answer, and no presentation format runs longer than 3.
  */
 export function interleaveCards(cards: ReviewCard[], mcqOptionsByCard: Map<number, string[]>): ReviewCard[] {
   const out = [...cards];

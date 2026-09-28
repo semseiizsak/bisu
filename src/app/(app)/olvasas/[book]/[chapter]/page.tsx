@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BOOKS } from "@/lib/content/books";
 import { ReaderClient } from "@/components/reading/ReaderClient";
+import { ChapterNote } from "@/components/reading/ChapterNote";
 import { FlowStepper } from "@/components/session/FlowStepper";
 import { SermonRecs } from "@/components/sermons/SermonRecs";
 import { ButtonLink } from "@/components/ui/Button";
-import { dayIndexForDate } from "@/lib/session/day-index";
+import { currentDayIndex } from "@/lib/session/current-day";
+import { getDaySpan, spanPosition } from "@/lib/session/day-span";
 
 export default async function ChapterPage({
   params,
@@ -25,48 +27,42 @@ export default async function ChapterPage({
   const sessionMode = modeParam === "short" ? "short" : "full";
 
   const supabase = await createClient();
-  const [{ data: book }, { data: allBooks }, { data: settings }] = await Promise.all([
+  const [{ data: book }, { data: allBooks }] = await Promise.all([
     supabase.from("books").select("id, name_hu, short_hu, chapters_count").eq("slug", bookSlug).maybeSingle(),
     supabase.from("books").select("slug, chapters_count"),
-    supabase.from("settings").select("program_start_date").eq("id", 1).maybeSingle(),
   ]);
   if (!book) notFound();
 
-  const [{ data: verses }, { count: cardCount }] = await Promise.all([
+  const [{ data: verses }, { data: note }, { count: questionCount }] = await Promise.all([
     supabase.from("verses").select("verse, text").eq("book_id", book.id).eq("chapter", chapter).order("verse"),
+    supabase.from("chapter_notes").select("*").eq("book_id", book.id).eq("chapter", chapter).maybeSingle(),
     supabase
       .from("cards")
       .select("id", { count: "exact", head: true })
       .eq("book_id", book.id)
       .eq("chapter", chapter)
+      .in("type", ["question", "recall"])
       .eq("active", true),
   ]);
 
   if (!verses || verses.length === 0) notFound();
 
-  const sessionCardCount = Math.min(10, cardCount ?? 0);
-
-  // Daily guided flow: walk today's reading span chapter by chapter, keeping
-  // the flow params alive across navigation (their loss on prev/next links
-  // was the bug that killed the guided session after the first chapter).
-  let daySpan: { book_slug: string; chapter: number }[] = [];
+  // Daily guided flow: keep the flow params alive across chapter navigation.
+  let inDailyFlow = false;
+  let spanPos = -1;
+  let spanLength = 0;
   let focusNote: string | null = null;
+  let spanPrev: { book_slug: string; chapter: number } | null = null;
   if (flow === "daily") {
-    const dayIdx = dayIndexForDate(settings?.program_start_date ?? new Date().toISOString().slice(0, 10), new Date());
-    const { data: planRow } = await supabase.from("reading_plan").select("segments, focus_note").eq("day_idx", dayIdx).maybeSingle();
-    focusNote = planRow?.focus_note ?? null;
-    for (const seg of planRow?.segments ?? []) {
-      for (let ch = seg.ch_from; ch <= seg.ch_to; ch++) daySpan.push({ book_slug: seg.book_slug, chapter: ch });
-    }
+    const dayIdx = await currentDayIndex(supabase);
+    const span = await getDaySpan(supabase, dayIdx);
+    spanPos = spanPosition(span, bookSlug, chapter);
+    inDailyFlow = spanPos >= 0;
+    spanLength = span.chapters.length;
+    focusNote = span.focusNote;
+    spanPrev = inDailyFlow && spanPos > 0 ? span.chapters[spanPos - 1] : null;
   }
-  const spanPos = daySpan.findIndex((c) => c.book_slug === bookSlug && c.chapter === chapter);
-  const inDailyFlow = flow === "daily" && spanPos >= 0;
-  if (flow === "daily" && spanPos < 0) daySpan = [];
-
   const flowQuery = `?flow=daily&mode=${sessionMode}`;
-  const spanPrev = inDailyFlow && spanPos > 0 ? daySpan[spanPos - 1] : null;
-  const spanNext = inDailyFlow && spanPos < daySpan.length - 1 ? daySpan[spanPos + 1] : null;
-  const isLastOfSpan = inDailyFlow && spanPos === daySpan.length - 1;
 
   const chaptersCountBySlug = new Map((allBooks ?? []).map((b) => [b.slug, b.chapters_count]));
   const bookIdxInOrder = BOOKS.findIndex((b) => b.slug === bookSlug);
@@ -89,11 +85,11 @@ export default async function ChapterPage({
   return (
     <main className="mx-auto max-w-md px-4 pt-6">
       {inDailyFlow ? (
-        <FlowStepper stage={1} detail={`${book.name_hu} ${chapter} · fejezet ${spanPos + 1}/${daySpan.length}`} />
+        <FlowStepper stage={1} detail={`${book.name_hu} ${chapter} · fejezet ${spanPos + 1}/${spanLength}`} />
       ) : (
         <div className="flex items-center justify-between">
           <Link href="/olvasas" className="text-sm font-extrabold text-ink-muted">
-            ← Ma
+            ← Olvasás
           </Link>
           <p className="text-sm font-extrabold text-ink">
             {book.name_hu} {chapter}
@@ -102,9 +98,21 @@ export default async function ChapterPage({
         </div>
       )}
 
+      {inDailyFlow && focusNote && spanPos === 0 && (
+        <p className="mt-3 rounded-md border border-line-strong bg-paper px-3 py-2 text-sm text-ink-muted">{focusNote}</p>
+      )}
+
       <div className="mt-6">
         <ReaderClient verses={verses} bookId={book.id} bookShort={book.short_hu} chapter={chapter} />
       </div>
+
+      {/* The study note sits after the text on purpose: read first, then get
+          the summary and the connections — no spoilers, no crutch. */}
+      {note && (
+        <div className="mt-8">
+          <ChapterNote note={note} compact />
+        </div>
+      )}
 
       <Suspense fallback={null}>
         <SermonRecs bookId={book.id} chapter={chapter} bookNameHu={book.name_hu} focusNote={focusNote} />
@@ -113,17 +121,9 @@ export default async function ChapterPage({
       <div className="mt-8 flex flex-col gap-3 pb-6">
         {inDailyFlow ? (
           <>
-            {isLastOfSpan ? (
-              <ButtonLink size="lg" href={`/ma/session/notes?mode=${sessionMode}`}>
-                Tovább a jegyzetekhez →
-              </ButtonLink>
-            ) : (
-              spanNext && (
-                <ButtonLink size="lg" href={`/olvasas/${spanNext.book_slug}/${spanNext.chapter}${flowQuery}`}>
-                  Következő fejezet →
-                </ButtonLink>
-              )
-            )}
+            <ButtonLink size="lg" href={`/olvasas/${bookSlug}/${chapter}/notes${flowQuery}`}>
+              Elolvastam → jegyzet és kérdések
+            </ButtonLink>
             {spanPrev && (
               <div className="flex justify-start">
                 <ButtonLink variant="ghost" size="sm" href={`/olvasas/${spanPrev.book_slug}/${spanPrev.chapter}${flowQuery}`}>
@@ -134,11 +134,9 @@ export default async function ChapterPage({
           </>
         ) : (
           <>
-            {sessionCardCount > 0 && (
-              <ButtonLink href={`/olvasas/${bookSlug}/${chapter}/notes`}>
-                Jegyzetek megtekintése ({sessionCardCount} kártya)
-              </ButtonLink>
-            )}
+            <ButtonLink href={`/olvasas/${bookSlug}/${chapter}/notes`} variant="secondary">
+              {(questionCount ?? 0) > 0 ? `Jegyzet és kérdések (${questionCount})` : "Jegyzet és kérdések készítése"}
+            </ButtonLink>
             <div className="flex justify-between">
               {prev ? (
                 <ButtonLink variant="ghost" size="sm" href={`/olvasas/${prev.book}/${prev.chapter}`}>

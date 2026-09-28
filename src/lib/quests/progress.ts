@@ -40,11 +40,13 @@ async function computeMetric(db: DB, metric: QuestMetric, dayIdx: number, todayS
       const n = count ?? 0;
       return { progress: Math.min(n, target), done: n >= target };
     }
-    case "mcq_count": {
+    case "new_cards": {
+      // A card's first-ever review (state_before = 0) in the quiz.
       const { count } = await db
         .from("reviews")
-        .select("id, cards!inner(type)", { count: "exact", head: true })
-        .eq("cards.type", "mcq")
+        .select("id", { count: "exact", head: true })
+        .eq("mode", "srs")
+        .eq("state_before", 0)
         .gte("reviewed_at", todayStartIso);
       const n = count ?? 0;
       return { progress: Math.min(n, target), done: n >= target };

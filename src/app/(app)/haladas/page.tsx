@@ -4,7 +4,7 @@ import { BOOKS } from "@/lib/content/books";
 import { ERA_ORDER, ERA_LABELS } from "@/lib/content/eras";
 import { masteryBucketClass } from "@/lib/mastery/color";
 import { forecastDayToTarget } from "@/lib/mastery/forecast";
-import { dayIndexForDate } from "@/lib/session/day-index";
+import { currentDayIndex } from "@/lib/session/current-day";
 import { computeStreak } from "@/lib/streak/compute";
 import { checkAndAwardBadges } from "@/lib/badges/check";
 import { reconcileXp } from "@/lib/xp/reconcile";
@@ -18,7 +18,7 @@ export default async function ProgressPage() {
   const supabase = await createClient();
 
   const [
-    { data: settings },
+    dayIdx,
     { data: bookMastery },
     { data: eraMastery },
     { data: weakScopes },
@@ -28,7 +28,7 @@ export default async function ProgressPage() {
     { count: masteredCards },
     newBadges,
   ] = await Promise.all([
-    supabase.from("settings").select("program_start_date").eq("id", 1).maybeSingle(),
+    currentDayIndex(supabase),
     supabase.from("mastery").select("scope_id, score, coverage, card_count").eq("scope_type", "book"),
     supabase.from("mastery").select("scope_id, score, card_count").eq("scope_type", "era"),
     supabase.from("mastery").select("scope_type, scope_id, score, card_count").gte("card_count", 5).order("score", { ascending: true }).limit(10),
@@ -45,8 +45,6 @@ export default async function ProgressPage() {
     .order("category", { ascending: true })
     .order("threshold", { ascending: true });
 
-  const programStart = settings?.program_start_date ?? new Date().toISOString().slice(0, 10);
-  const dayIdx = dayIndexForDate(programStart, new Date());
   const xpSummary = await reconcileXp(supabase, dayIdx);
   const coachReport = await getOrGenerateCoachReport(supabase);
 

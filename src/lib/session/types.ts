@@ -1,4 +1,4 @@
-export type SessionBlockType = "reading" | "review" | "new" | "weak" | "game" | "interleave";
+export type SessionBlockType = "reading" | "review" | "new" | "weak" | "game";
 
 export interface SessionCardItem {
   card_id: number;

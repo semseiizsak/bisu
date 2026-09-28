@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, useAnimation } from "framer-motion";
 import { CardFace } from "@/components/review/CardFace";
 import { RatingButtons } from "@/components/review/RatingButtons";
 import { reviewCard, type FsrsRating } from "@/lib/fsrs/engine";
-import { queuePendingReview, flushPendingReviews } from "@/lib/db/sync";
-import { flagCardNotImportant, suppressSimilarFacts } from "@/lib/actions/flag-card";
+import { queuePendingReview } from "@/lib/db/sync";
+import { flagCardNotImportant } from "@/lib/actions/questions";
 import { advanceVerseStage } from "@/lib/actions/memory-verse";
 import type { ReviewCard } from "@/lib/review/types";
 
@@ -17,7 +17,7 @@ interface Props {
   /** Hide the built-in "Kész!" screen — the daily session renders its own
    * breather/summary instead and unmounts this component on completion. */
   showSummary?: boolean;
-  /** Per-card synthesized MCQ options (daily-session format mixing). */
+  /** Per-card multiple-choice options (see src/lib/session/interleave.ts). */
   mcqOptionsByCard?: Map<number, string[]>;
 }
 
@@ -27,25 +27,8 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
   const [suggested, setSuggested] = useState<FsrsRating | undefined>(undefined);
   const [done, setDone] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
-  // Facts flagged mid-session — upcoming cards sharing one of these are
-  // skipped without being shown, closing the last leak: an already-loaded
-  // session still holding a sibling of a just-flagged fact.
-  const [hiddenFactIds, setHiddenFactIds] = useState<Set<number>>(new Set());
-  const [similarOffer, setSimilarOffer] = useState<{ factKey: string; label: string } | null>(null);
-  const [similarStatus, setSimilarStatus] = useState<"idle" | "loading" | "done">("idle");
   const startedAt = useRef(Date.now());
   const controls = useAnimation();
-
-  const isHidden = useCallback((c: ReviewCard | undefined, hidden: Set<number>) => !!c && c.fact_id != null && hidden.has(c.fact_id), []);
-
-  const findNextIndex = useCallback(
-    (from: number, hidden: Set<number>) => {
-      let i = from;
-      while (i < cards.length && isHidden(cards[i], hidden)) i++;
-      return i;
-    },
-    [cards, isHidden],
-  );
 
   const card = cards[index];
   const progress = cards.length ? Math.round((index / cards.length) * 100) : 0;
@@ -65,6 +48,18 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
     setRevealed(true);
     if (correct) setCorrectCount((c) => c + 1);
   }, []);
+
+  const advance = useCallback(() => {
+    controls.set({ x: 0, opacity: 1 });
+    if (index + 1 >= cards.length) {
+      setDone(true);
+      onComplete?.({ correct: correctCount, total: cards.length });
+    } else {
+      setIndex(index + 1);
+      setRevealed(false);
+      setSuggested(undefined);
+    }
+  }, [controls, index, cards.length, onComplete, correctCount]);
 
   const rate = useCallback(
     async (rating: FsrsRating) => {
@@ -92,72 +87,19 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
         new_lapses: next.lapses,
       });
 
-      if (rating === 4 && typeof navigator !== "undefined" && navigator.onLine) {
-        void (async () => {
-          try {
-            await flushPendingReviews();
-            await fetch("/api/adaptive/variant", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ cardId: card.id }),
-            });
-          } catch {
-            // adaptive variation is a nice-to-have — never block the review flow on it
-          }
-        })();
-      }
-
-      controls.set({ x: 0, opacity: 1 });
-      const nextIdx = findNextIndex(index + 1, hiddenFactIds);
-      if (nextIdx >= cards.length) {
-        setDone(true);
-        onComplete?.({ correct: correctCount, total: cards.length });
-      } else {
-        setIndex(nextIdx);
-        setRevealed(false);
-        setSuggested(undefined);
-      }
+      advance();
     },
-    [card, controls, index, cards.length, mode, onComplete, correctCount, findNextIndex, hiddenFactIds],
+    [card, mode, advance],
   );
 
-  // "Nem fontos" — retire the fact everywhere and move on without a rating.
+  // "Nem fontos" — retire the card and move on without a rating.
   const flagAndSkip = useCallback(() => {
     if (!card) return;
-    const flaggedFactId = card.fact_id;
-    void flagCardNotImportant(card.id)
-      .then((result) => {
-        if (result.factKey && result.factKeyLabel) {
-          setSimilarOffer({ factKey: result.factKey, label: result.factKeyLabel });
-          setSimilarStatus("idle");
-        }
-      })
-      .catch(() => {
-        // best-effort: if offline/failed the card simply shows up again later
-      });
-    if (flaggedFactId != null) {
-      setHiddenFactIds((prev) => new Set(prev).add(flaggedFactId));
-    }
-    controls.set({ x: 0, opacity: 1 });
-    const hiddenAfterFlag = flaggedFactId != null ? new Set(hiddenFactIds).add(flaggedFactId) : hiddenFactIds;
-    const nextIdx = findNextIndex(index + 1, hiddenAfterFlag);
-    if (nextIdx >= cards.length) {
-      setDone(true);
-      onComplete?.({ correct: correctCount, total: cards.length });
-    } else {
-      setIndex(nextIdx);
-      setRevealed(false);
-      setSuggested(undefined);
-    }
-  }, [card, controls, index, cards.length, onComplete, correctCount, findNextIndex, hiddenFactIds]);
-
-  const suppressSimilar = useCallback(() => {
-    if (!similarOffer || similarStatus === "loading") return;
-    setSimilarStatus("loading");
-    void suppressSimilarFacts(similarOffer.factKey)
-      .then(() => setSimilarStatus("done"))
-      .catch(() => setSimilarStatus("idle"));
-  }, [similarOffer, similarStatus]);
+    void flagCardNotImportant(card.id).catch(() => {
+      // best-effort: if offline/failed the card simply shows up again later
+    });
+    advance();
+  }, [card, advance]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -175,12 +117,6 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [revealed, handleReveal, rate]);
-
-  useEffect(() => {
-    if (!similarOffer) return;
-    const t = setTimeout(() => setSimilarOffer(null), 8000);
-    return () => clearTimeout(t);
-  }, [similarOffer]);
 
   const swipeThreshold = 100;
 
@@ -212,32 +148,6 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
         {index + 1} / {cards.length}
       </p>
 
-      {similarOffer && (
-        <div className="rounded-md border border-line-strong bg-surface p-3 text-sm">
-          {similarStatus === "done" ? (
-            <p className="text-good">Hasonló kérdések elrejtve.</p>
-          ) : (
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-ink-muted">
-                Elrejtve. Minden hasonló elrejtése: <span className="font-extrabold text-ink">«{similarOffer.label}»</span>?
-              </p>
-              <div className="flex shrink-0 gap-2">
-                <button
-                  onClick={suppressSimilar}
-                  disabled={similarStatus === "loading"}
-                  className="font-extrabold text-accent underline underline-offset-4 disabled:opacity-50"
-                >
-                  Elrejtem mind
-                </button>
-                <button onClick={() => setSimilarOffer(null)} className="text-ink-faint underline underline-offset-4">
-                  Mégse
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       <motion.div
         key={card.id}
         drag={revealed ? "x" : false}
@@ -262,8 +172,4 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
       </button>
     </div>
   );
-}
-
-export function useSessionSummary(cards: ReviewCard[]) {
-  return useMemo(() => ({ total: cards.length }), [cards]);
 }

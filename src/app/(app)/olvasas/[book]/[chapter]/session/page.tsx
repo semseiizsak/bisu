@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BOOKS } from "@/lib/content/books";
+import { SRS_CARD_TYPES } from "@/lib/content/difficulty";
 import { loadReviewCards } from "@/lib/review/load-cards";
 import { SessionRunner } from "@/components/review/SessionRunner";
 
+/** Free-practice quiz over one chapter's kept questions. */
 export default async function ChapterSessionPage({
   params,
 }: {
@@ -24,14 +26,16 @@ export default async function ChapterSessionPage({
     .eq("book_id", book.id)
     .eq("chapter", chapter)
     .eq("active", true)
-    .limit(10);
+    .in("type", [...SRS_CARD_TYPES])
+    .order("id")
+    .limit(12);
 
   const cards = await loadReviewCards(supabase, (candidates ?? []).map((c) => c.id));
 
   return (
     <main className="mx-auto max-w-md px-4 pt-6">
-      <Link href={`/olvasas/${bookSlug}/${chapter}`} className="text-sm font-extrabold text-ink-muted">
-        ← Vissza az olvasáshoz
+      <Link href={`/olvasas/${bookSlug}/${chapter}/notes`} className="text-sm font-extrabold text-ink-muted">
+        ← Vissza a jegyzethez
       </Link>
       <div className="mt-4">
         <SessionRunner cards={cards} />

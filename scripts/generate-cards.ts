@@ -1,17 +1,16 @@
 /**
- * Deterministic card generator (Phase 2, section 5). Thin CLI wrapper over
- * src/lib/pipeline/generate.ts's generateCards() — the same function the
- * JIT pipeline (/api/pipeline/jit) calls after every extraction, so a
- * manual run and an automated run share one implementation.
+ * Generates the game-only card types (locate / order / chain / map) from
+ * verses, timeline_events, genealogy_edges and geo_places. Idempotent.
+ * Quiz questions come from scripts/generate-questions.ts instead.
  *
  * Usage: npx tsx scripts/generate-cards.ts
  */
-import { generateCards } from "../src/lib/pipeline/generate";
+import { generateGameCards } from "../src/lib/pipeline/generate";
 import { supabaseAdmin } from "./lib/supabase-admin";
 
-generateCards(supabaseAdmin)
+generateGameCards(supabaseAdmin)
   .then(({ cardsCreated }) => {
-    console.log(`Done. ${cardsCreated} cards created.`);
+    console.log(`Done. ${cardsCreated} game card(s) created.`);
   })
   .catch((err) => {
     console.error(err);

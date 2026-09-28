@@ -4,6 +4,7 @@ import type { CardType } from "@/lib/content/difficulty";
 export const DEFAULT_TIME_ESTIMATES: { reading_per_verse: number; card: Record<CardType, number> } = {
   reading_per_verse: 0.055, // ~200 wpm calibrated for Károli
   card: {
+    question: 0.3,
     recall: 0.25,
     reverse: 0.25,
     mcq: 0.18,

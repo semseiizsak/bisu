@@ -7,15 +7,18 @@ import { createNewCardState } from "@/lib/fsrs/engine";
 export async function loadReviewCards(
   db: SupabaseClient<Database>,
   cardIds: number[],
+  opts: { includeInactive?: boolean } = {},
 ): Promise<ReviewCard[]> {
   if (!cardIds.length) return [];
 
+  let cardQuery = db
+    .from("cards")
+    .select("id, type, prompt, answer, answer_alt, distractors, payload, verse_ref, entity_id, fact_id, book_id, chapter")
+    .in("id", cardIds);
+  if (!opts.includeInactive) cardQuery = cardQuery.eq("active", true);
+
   const [{ data: cards }, { data: states }, { data: verses }] = await Promise.all([
-    db
-      .from("cards")
-      .select("id, type, prompt, answer, answer_alt, distractors, payload, verse_ref, entity_id, fact_id")
-      .in("id", cardIds)
-      .eq("active", true),
+    cardQuery,
     db.from("card_states").select("card_id, stability, difficulty, due_at, last_review, reps, lapses, state").in("card_id", cardIds),
     db.from("memory_verses").select("card_id, text, reference, stage").in("card_id", cardIds),
   ]);
@@ -39,6 +42,8 @@ export async function loadReviewCards(
         verse_ref: c.verse_ref,
         entity_id: c.entity_id,
         fact_id: c.fact_id,
+        book_id: c.book_id,
+        chapter: c.chapter,
         state: s
           ? {
               stability: s.stability,

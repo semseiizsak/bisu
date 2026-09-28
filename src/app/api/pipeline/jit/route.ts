@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { runJitPipeline } from "@/lib/pipeline/run";
+import { runJitPipeline, type ChapterTarget } from "@/lib/pipeline/run";
+import { BOOKS } from "@/lib/content/books";
 
 export const maxDuration = 60;
 
@@ -16,15 +17,35 @@ async function isAuthorized(request: Request): Promise<boolean> {
   return !!user;
 }
 
-/** Vercel cron target (see vercel.json) + manual catch-up:
- * curl -H "Authorization: Bearer $CRON_SECRET" https://.../api/pipeline/jit */
+function parseTargets(body: unknown): ChapterTarget[] {
+  const raw = (body as { chapters?: unknown } | null)?.chapters;
+  if (!Array.isArray(raw)) return [];
+  const out: ChapterTarget[] = [];
+  for (const item of raw.slice(0, 10)) {
+    const slug = (item as { book?: unknown })?.book;
+    const chapter = Number((item as { chapter?: unknown })?.chapter);
+    if (typeof slug !== "string" || !BOOKS.some((b) => b.slug === slug) || !Number.isInteger(chapter) || chapter < 1) continue;
+    out.push({ book_slug: slug, chapter });
+  }
+  return out;
+}
+
+/**
+ * Vercel cron target (see vercel.json) and on-demand generation from the
+ * reader. Body may carry explicit chapters:
+ *   { "chapters": [{ "book": "genesis", "chapter": 4 }] }
+ * Manual catch-up: curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://.../api/pipeline/jit
+ */
 export async function POST(request: Request) {
   if (!(await isAuthorized(request))) return new NextResponse(null, { status: 401 });
   if (!process.env.OPENAI_API_KEY) return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
 
+  const body = await request.json().catch(() => null);
+  const explicit = parseTargets(body);
+
   const admin = createAdminClient();
   try {
-    const summary = await runJitPipeline(admin, process.env.OPENAI_API_KEY);
+    const summary = await runJitPipeline(admin, process.env.OPENAI_API_KEY, explicit);
     return NextResponse.json(summary);
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });

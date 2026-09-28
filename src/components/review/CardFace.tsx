@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { cx } from "@/lib/cx";
 import { isExactMatch, isCloseMatch } from "@/lib/content/text";
 import type { ReviewCard } from "@/lib/review/types";
-import type { McqPayload, ClozePayload, LocatePayload, NumericPayload } from "@/lib/content/card-payloads";
+import type { ClozePayload, LocatePayload, QuestionPayload } from "@/lib/content/card-payloads";
+import { QUESTION_KIND_LABELS } from "@/lib/content/card-payloads";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { VerseTrainer } from "@/components/verse/VerseTrainer";
@@ -13,10 +14,12 @@ interface Props {
   card: ReviewCard;
   revealed: boolean;
   onReveal: (wasCorrect: boolean | null) => void;
-  /** Present a non-mcq card as multiple choice with these options (the
-   * daily session synthesizes them from sibling answers for variety). */
+  /** Present this card as multiple choice with these options (decided per
+   * session by src/lib/session/interleave.ts). */
   mcqOptions?: string[];
 }
+
+const LONG_ANSWER = 28;
 
 export function CardFace({ card, revealed, onReveal, mcqOptions }: Props) {
   const [textAnswer, setTextAnswer] = useState("");
@@ -36,11 +39,12 @@ export function CardFace({ card, revealed, onReveal, mcqOptions }: Props) {
   }
 
   const accepted = [card.answer, ...card.answer_alt];
+  const question = card.type === "question" ? (card.payload as QuestionPayload | null) : null;
 
   function submitText() {
     if (!textAnswer.trim()) return onReveal(null);
     if (isExactMatch(textAnswer, accepted)) return onReveal(true);
-    if (isCloseMatch(textAnswer, card.answer)) {
+    if (accepted.some((a) => isCloseMatch(textAnswer, a))) {
       setNearMiss(true);
       return;
     }
@@ -57,47 +61,35 @@ export function CardFace({ card, revealed, onReveal, mcqOptions }: Props) {
     onReveal(option === card.answer);
   }
 
-  const isTextType = ["recall", "reverse", "chain", "cloze", "locate"].includes(card.type);
-  // Long answers (full verse text etc.) are unreasonable to force exact retyping of —
-  // reveal and let the learner self-grade instead, like the non-text card types do.
-  const isLongAnswer = card.answer.length > 24;
-  const asSynthMcq = !!mcqOptions?.length && card.type !== "mcq" && card.type !== "numeric";
-  const requiresTyping = isTextType && !isLongAnswer && !asSynthMcq;
+  const asMcq = !!mcqOptions?.length;
+  const isTextType = ["question", "recall", "chain", "cloze", "locate"].includes(card.type);
+  // Long answers are unreasonable to force exact retyping of — reveal and
+  // let the learner self-grade instead.
+  const isLongAnswer = card.answer.length > LONG_ANSWER;
+  const requiresTyping = isTextType && !isLongAnswer && !asMcq;
+  const showReveal = !revealed && !requiresTyping && !asMcq;
 
   return (
     <div className="flex flex-col gap-5">
       <div className="rounded-lg border border-line bg-surface p-6 text-center">
+        {(question || card.verse_ref) && (
+          <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-ink-faint">
+            {question ? QUESTION_KIND_LABELS[question.kind] : ""}
+            {question && card.verse_ref ? " · " : ""}
+            {card.verse_ref ?? ""}
+          </p>
+        )}
         <p className="text-lg text-ink leading-relaxed whitespace-pre-line">{card.prompt}</p>
       </div>
 
-      {!revealed && (card.type === "mcq" || asSynthMcq) && (
+      {!revealed && asMcq && (
         <div className="grid grid-cols-1 gap-2">
-          {Array.from(new Set(asSynthMcq ? mcqOptions! : ((card.payload as McqPayload)?.options ?? []))).map((opt) => (
-            <Button key={opt} variant="secondary" onClick={() => pickOption(opt)}>
+          {mcqOptions!.map((opt) => (
+            <Button key={opt} variant="secondary" onClick={() => pickOption(opt)} className="text-left">
               {opt}
             </Button>
           ))}
         </div>
-      )}
-
-      {!revealed && card.type === "numeric" && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onReveal(textAnswer.trim() === card.answer.trim());
-          }}
-          className="flex gap-2"
-        >
-          <Input
-            type="number"
-            inputMode="numeric"
-            autoFocus
-            value={textAnswer}
-            onChange={(e) => setTextAnswer(e.target.value)}
-            placeholder={(card.payload as NumericPayload)?.unit ?? "szám"}
-          />
-          <Button type="submit">Kész</Button>
-        </form>
       )}
 
       {!revealed && requiresTyping && !nearMiss && (
@@ -129,7 +121,7 @@ export function CardFace({ card, revealed, onReveal, mcqOptions }: Props) {
         </div>
       )}
 
-      {!revealed && !requiresTyping && !asSynthMcq && card.type !== "mcq" && card.type !== "numeric" && (
+      {showReveal && (
         <Button variant="secondary" onClick={() => onReveal(null)}>
           Válasz felfedése (Space)
         </Button>
@@ -142,7 +134,8 @@ export function CardFace({ card, revealed, onReveal, mcqOptions }: Props) {
           {selectedOption && selectedOption !== card.answer && (
             <p className="mt-1 text-sm text-bad">A választásod: {selectedOption}</p>
           )}
-          {card.verse_ref && (
+          {question?.why && <p className="mt-3 text-sm text-ink-muted leading-relaxed">{question.why}</p>}
+          {card.verse_ref && card.type !== "question" && (
             <button
               onClick={() => setShowContext((s) => !s)}
               className="mt-3 text-sm font-extrabold text-accent underline underline-offset-4"

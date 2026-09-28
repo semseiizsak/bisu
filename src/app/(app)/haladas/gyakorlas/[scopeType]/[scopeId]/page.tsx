@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { loadReviewCards } from "@/lib/review/load-cards";
+import { SRS_CARD_TYPES } from "@/lib/content/difficulty";
 import { SessionRunner } from "@/components/review/SessionRunner";
 
 export default async function PracticeScopePage({
@@ -15,7 +16,7 @@ export default async function PracticeScopePage({
   let query = supabase.from("cards").select("id").eq("active", true).limit(20);
   if (scopeType === "book") {
     const { data: book } = await supabase.from("books").select("id").eq("slug", scopeId).maybeSingle();
-    query = query.eq("book_id", book?.id ?? -1);
+    query = query.eq("book_id", book?.id ?? -1).in("type", [...SRS_CARD_TYPES]);
   } else if (scopeType === "entity") {
     query = query.eq("entity_id", Number(scopeId.split(":")[1]));
   } else if (scopeType === "era") {

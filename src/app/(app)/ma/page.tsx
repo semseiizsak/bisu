@@ -7,6 +7,8 @@ import { checkAndAwardBadges } from "@/lib/badges/check";
 import { updateQuestProgress, fetchDailyQuests } from "@/lib/quests/progress";
 import { reconcileXp } from "@/lib/xp/reconcile";
 import { gameLabel } from "@/lib/content/games";
+import { getDaySpan } from "@/lib/session/day-span";
+import { PIPELINE_KIND } from "@/lib/pipeline/run";
 import { cx } from "@/lib/cx";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -16,8 +18,9 @@ import { BadgeToast } from "@/components/badges/BadgeToast";
 import { QuestList } from "@/components/quests/QuestList";
 import { QuestToast } from "@/components/quests/QuestToast";
 import { SermonRecs } from "@/components/sermons/SermonRecs";
+import { PipelineKick } from "@/components/reading/PipelineKick";
 
-const SRS_BLOCK_TYPES = ["review", "new", "weak", "interleave"];
+const SRS_BLOCK_TYPES = ["review", "new", "weak"];
 
 type RowState = "done" | "partial" | "todo";
 
@@ -42,7 +45,7 @@ export default async function TodayPage() {
   const dayIdx = plan.day_idx;
   // Runs before the Promise.all below so fetchDailyQuests reads up-to-date progress.
   const newQuests = dayIdx != null ? await updateQuestProgress(supabase, dayIdx) : [];
-  const [progress, streak, newBadges, xpSummary, questRows, dueVerses] = await Promise.all([
+  const [progress, streak, newBadges, xpSummary, questRows, dueVerses, span] = await Promise.all([
     computeDayProgress(supabase, plan),
     computeStreak(supabase),
     checkAndAwardBadges(supabase),
@@ -54,16 +57,30 @@ export default async function TodayPage() {
       .eq("cards.active", true)
       .eq("cards.card_states.suspended", false)
       .lte("cards.card_states.due_at", new Date().toISOString()),
+    dayIdx != null ? getDaySpan(supabase, dayIdx) : Promise.resolve(null),
   ]);
   const dueVerseCount = dueVerses.count ?? 0;
+
+  // Today's chapters that have no questions yet — generate them now rather
+  // than waiting for tonight's cron.
+  let pendingChapters: { book: string; chapter: number }[] = [];
+  if (span?.chapters.length) {
+    const { data: runs } = await supabase
+      .from("extraction_runs")
+      .select("book_slug, chapter")
+      .eq("kind", PIPELINE_KIND)
+      .in("book_slug", Array.from(new Set(span.chapters.map((c) => c.book_slug))));
+    const done = new Set((runs ?? []).map((r) => `${r.book_slug}:${r.chapter}`));
+    pendingChapters = span.chapters.filter((c) => !done.has(`${c.book_slug}:${c.chapter}`)).map((c) => ({ book: c.book_slug, chapter: c.chapter }));
+  }
 
   const readingBlock = plan.blocks.find((b) => b.type === "reading");
   const gameBlock = plan.blocks.find((b) => b.type === "game");
   const srsBlocks = plan.blocks.filter((b) => SRS_BLOCK_TYPES.includes(b.type));
   const srsPlanned = srsBlocks.reduce((s, b) => s + b.items.length, 0);
   const srsEstRaw = srsBlocks.reduce((s, b) => s + b.est_minutes, 0);
-  // Estimate for the capped quiz, not every theoretically-eligible card.
   const quizEst = srsPlanned > 0 ? Math.max(1, Math.round((srsEstRaw * progress.srsExpected) / srsPlanned)) : 0;
+  const newCount = plan.blocks.find((b) => b.type === "new")?.items.length ?? 0;
 
   const readingDone = progress.reading >= 1;
   const quizState: RowState = progress.srsExpected === 0 || progress.srs >= 1 ? "done" : progress.srsDone > 0 ? "partial" : "todo";
@@ -93,7 +110,7 @@ export default async function TodayPage() {
     rows.push({
       key: "quiz",
       title: "Ismétlés",
-      desc: `${Math.min(progress.srsDone, progress.srsExpected)}/${progress.srsExpected} kártya ma`,
+      desc: `${Math.min(progress.srsDone, progress.srsExpected)}/${progress.srsExpected} kérdés${newCount ? ` · ${newCount} új` : ""}`,
       est: quizEst,
       state: quizState,
       chip: quizState === "done" ? "Kész" : quizState === "partial" ? `${Math.min(progress.srsDone, progress.srsExpected)}/${progress.srsExpected}` : "hátra van",
@@ -123,8 +140,6 @@ export default async function TodayPage() {
   const readingPending = !!readingBlock?.reading && !readingDone;
   const canStartSession = progress.srsExpected > 0 || readingPending;
 
-  // Sermon recs need a book_id, which SessionBlock's reading info doesn't
-  // carry (only book_slug) — resolved on demand for the all-done block only.
   let sermonBook: { id: number; name_hu: string } | null = null;
   if (allDone && readingBlock?.reading) {
     const { data } = await supabase.from("books").select("id, name_hu").eq("slug", readingBlock.reading.book_slug).maybeSingle();
@@ -177,6 +192,11 @@ export default async function TodayPage() {
           </Card>
         ))}
         {rows.length === 0 && <p className="text-ink-muted">Nincs ma mit tenni — pihenj.</p>}
+        {pendingChapters.length > 0 && (
+          <Card className="px-4 py-3">
+            <PipelineKick chapters={pendingChapters} compact />
+          </Card>
+        )}
       </div>
 
       {dueVerseCount > 0 && (
@@ -198,7 +218,7 @@ export default async function TodayPage() {
           <>
             <p className="text-center font-extrabold text-good">A mai nap teljesítve ✓</p>
             <ButtonLink size="lg" variant="secondary" href="/ma/session?mode=short">
-              Extra kör (15′)
+              Extra kör (10′)
             </ButtonLink>
             {sermonBook && readingBlock?.reading && (
               <Suspense fallback={null}>
@@ -216,10 +236,10 @@ export default async function TodayPage() {
           canStartSession && (
             <>
               <ButtonLink size="lg" href={sessionHref("full")}>
-                {quizState === "partial" ? "Folytatás" : "Teljes nap"} ({remainingMinutes}′)
+                {quizState === "partial" ? "Folytatás" : "Mai adag"} ({remainingMinutes}′)
               </ButtonLink>
               <ButtonLink size="lg" variant="secondary" href={sessionHref("short")}>
-                Rövid (15′)
+                Rövid (10′)
               </ButtonLink>
             </>
           )

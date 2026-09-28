@@ -1,7 +1,8 @@
 /**
- * Loads hand-extracted seed content (data/seed/*.json, following the same
- * shape scripts/extract-facts.ts produces) into entities/facts/
- * timeline_events/genealogy_edges/geo_places.
+ * Loads hand-made seed content (data/seed/*.json) into entities/facts/
+ * timeline_events/genealogy_edges/geo_places. Only the timeline, genealogy
+ * and geo data matter now (they feed the games); the facts are kept for
+ * reference and no longer produce cards.
  *
  * Usage: npx tsx scripts/load-seed.ts data/seed/genesis-1-11.json data/seed/ruth.json
  */

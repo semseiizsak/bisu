@@ -20,7 +20,7 @@ export interface DayProgress {
   gameExpected: number;
 }
 
-const SRS_BLOCK_TYPES = ["review", "new", "weak", "interleave"];
+const SRS_BLOCK_TYPES = ["review", "new", "weak"];
 
 export async function computeDayProgress(db: DB, plan: SessionPlan, now: Date = new Date()): Promise<DayProgress> {
   const todayStart = new Date(now);

@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { dayIndexForDate } from "@/lib/session/day-index";
+import { currentDayIndex } from "@/lib/session/current-day";
 import { ensureDailyQuests } from "@/lib/quests/progress";
 
 /** Villámkör is display-only (no per-answer FSRS writes) — a perfect run is
@@ -15,8 +15,7 @@ export async function recordBlitzResult(hits: number, total: number): Promise<vo
   } = await supabase.auth.getUser();
   if (!user || total <= 0 || hits < total) return;
 
-  const { data: settings } = await supabase.from("settings").select("program_start_date").eq("id", 1).maybeSingle();
-  const dayIdx = dayIndexForDate(settings?.program_start_date ?? new Date().toISOString().slice(0, 10), new Date());
+  const dayIdx = await currentDayIndex(supabase);
 
   await ensureDailyQuests(supabase, dayIdx);
   const { data: quest } = await supabase

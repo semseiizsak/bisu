@@ -6,7 +6,7 @@ import { DailySession } from "@/components/session/DailySession";
 import { DAILY_QUIZ_CAP, SHORT_QUIZ_CAP } from "@/lib/session/constants";
 import type { SessionMode } from "@/lib/session/types";
 
-const QUIZ_BLOCKS = ["review", "new", "weak", "interleave"];
+const QUIZ_BLOCKS = ["review", "new", "weak"];
 
 /** Caps the quiz while keeping every block represented — a plain slice would
  * let a big review block starve the new/weak cards out of the session. */

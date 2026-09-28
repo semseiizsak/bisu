@@ -2,14 +2,12 @@ import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { dayIndexForDate } from "@/lib/session/day-index";
+import { currentDayIndex } from "@/lib/session/current-day";
 import { SermonRecs } from "@/components/sermons/SermonRecs";
 
 export default async function ReadingPage() {
   const supabase = await createClient();
-  const { data: settings } = await supabase.from("settings").select("program_start_date").eq("id", 1).maybeSingle();
-  const programStart = settings?.program_start_date ?? new Date().toISOString().slice(0, 10);
-  const dayIdx = dayIndexForDate(programStart, new Date());
+  const dayIdx = await currentDayIndex(supabase);
 
   const { data: plan } = await supabase.from("reading_plan").select("*").eq("day_idx", dayIdx).maybeSingle();
   const { count: daysCompleted } = await supabase
@@ -24,7 +22,9 @@ export default async function ReadingPage() {
   return (
     <main className="mx-auto max-w-md px-4 pt-8">
       <h1 className="text-2xl font-extrabold text-ink">Olvasás</h1>
-      <p className="mt-1 text-sm text-ink-muted">{dayIdx}. nap · {percent}% a 365 napból megvan</p>
+      <p className="mt-1 text-sm text-ink-muted">
+        {dayIdx}. nap · {percent}% a 365 napból megvan · a terv ott folytatódik, ahol abbahagytad
+      </p>
 
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-line">
         <div className="h-full bg-accent" style={{ width: `${percent}%` }} />
@@ -50,7 +50,7 @@ export default async function ReadingPage() {
           {plan.segments[0] && (
             <ButtonLink
               className="mt-4 w-full"
-              href={`/olvasas/${plan.segments[0].book_slug}/${plan.segments[0].ch_from}`}
+              href={`/olvasas/${plan.segments[0].book_slug}/${plan.segments[0].ch_from}?flow=daily&mode=full`}
             >
               Olvasás indítása
             </ButtonLink>
