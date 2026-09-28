@@ -270,8 +270,7 @@ type SettingsRow = {
   program_start_date: string;
 };
 
-export interface Database {
-  public: {
+type Schema = {
     Tables: {
       books: Table<BooksRow, Pick<BooksRow, "slug" | "name_hu" | "short_hu" | "testament" | "order_idx" | "genre" | "chapters_count"> & Partial<BooksRow>>;
       verses: Table<VersesRow, Pick<VersesRow, "book_id" | "chapter" | "verse" | "text"> & Partial<VersesRow>>;
@@ -314,4 +313,8 @@ export interface Database {
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
+
+// Only the app's own schema is typed; SupabaseClient<Database> then defaults to it.
+export interface Database {
+  bisu: Schema;
 }

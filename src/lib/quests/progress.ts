@@ -3,7 +3,7 @@ import type { Database } from "@/lib/supabase/types";
 import { QUEST_CATALOG, questsForDay, type QuestDef, type QuestMetric } from "@/lib/quests/catalog";
 
 type DB = SupabaseClient<Database>;
-type DailyQuestRow = Database["public"]["Tables"]["daily_quests"]["Row"];
+type DailyQuestRow = Database["bisu"]["Tables"]["daily_quests"]["Row"];
 
 /** Insert-if-missing today's 3 quests. Safe to call repeatedly. */
 export async function ensureDailyQuests(db: DB, dayIdx: number): Promise<void> {

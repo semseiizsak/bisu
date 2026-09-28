@@ -210,7 +210,7 @@ export async function generateGameCards(admin: DB): Promise<{ cardsCreated: numb
     const batch = newCards.slice(i, i + BATCH);
     const { data, error } = await admin
       .from("cards")
-      .insert(batch as unknown as Database["public"]["Tables"]["cards"]["Insert"][])
+      .insert(batch as unknown as Database["bisu"]["Tables"]["cards"]["Insert"][])
       .select("id");
     if (error) throw error;
     for (const row of data ?? []) insertedIds.push(row.id);

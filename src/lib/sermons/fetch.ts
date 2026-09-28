@@ -237,7 +237,7 @@ export async function getSermonRecs(
   // last keyword in the list.
   const searchKeywords = keywords;
   const recsByPreacher: SermonRec[][] = [];
-  const rows: Database["public"]["Tables"]["sermon_recs"]["Insert"][] = [];
+  const rows: Database["bisu"]["Tables"]["sermon_recs"]["Insert"][] = [];
   const seenVideoIds = new Set<string>();
   let quotaExceeded = false;
 

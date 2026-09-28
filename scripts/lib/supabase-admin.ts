@@ -7,13 +7,13 @@ config({ path: resolve(process.cwd(), ".env.local") });
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const schema = (process.env.SUPABASE_SCHEMA?.trim() || "bisu") as "bisu";
 
 if (!url || !key) {
-  throw new Error(
-    "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local",
-  );
+  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local");
 }
 
 export const supabaseAdmin = createClient<Database>(url, key, {
+  db: { schema },
   auth: { persistSession: false, autoRefreshToken: false },
 });

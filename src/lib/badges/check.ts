@@ -3,7 +3,7 @@ import type { Database } from "@/lib/supabase/types";
 import { computeStreak } from "@/lib/streak/compute";
 
 type DB = SupabaseClient<Database>;
-type BadgeRow = Database["public"]["Tables"]["badges"]["Row"];
+type BadgeRow = Database["bisu"]["Tables"]["badges"]["Row"];
 
 /**
  * Call after a real server-side event (a write, or just a page load — reviews

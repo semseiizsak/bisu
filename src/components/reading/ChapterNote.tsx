@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/Card";
 import type { Database } from "@/lib/supabase/types";
 
-export type ChapterNoteRow = Database["public"]["Tables"]["chapter_notes"]["Row"];
+export type ChapterNoteRow = Database["bisu"]["Tables"]["chapter_notes"]["Row"];
 
 /** The per-chapter study note: what happened, where it sits in the story,
  * the verse to remember, and where else the Bible picks the thread up. */
