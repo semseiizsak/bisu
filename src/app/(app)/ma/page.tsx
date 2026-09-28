@@ -7,6 +7,7 @@ import { checkAndAwardBadges } from "@/lib/badges/check";
 import { updateQuestProgress, fetchDailyQuests } from "@/lib/quests/progress";
 import { reconcileXp } from "@/lib/xp/reconcile";
 import { gameLabel } from "@/lib/content/games";
+import { currentDayIndex } from "@/lib/session/current-day";
 import { getDaySpan } from "@/lib/session/day-span";
 import { PIPELINE_KIND } from "@/lib/pipeline/run";
 import { cx } from "@/lib/cx";
@@ -41,38 +42,42 @@ function StatusChip({ state, label }: { state: RowState; label: string }) {
 
 export default async function TodayPage() {
   const supabase = await createClient();
-  const plan = await buildSessionPlan(supabase, new Date(), "full");
-  const dayIdx = plan.day_idx;
-  // Runs before the Promise.all below so fetchDailyQuests reads up-to-date progress.
-  const newQuests = dayIdx != null ? await updateQuestProgress(supabase, dayIdx) : [];
-  const [progress, streak, newBadges, xpSummary, questRows, dueVerses, span] = await Promise.all([
-    computeDayProgress(supabase, plan),
-    computeStreak(supabase),
-    checkAndAwardBadges(supabase),
-    reconcileXp(supabase, dayIdx),
-    dayIdx != null ? fetchDailyQuests(supabase, dayIdx) : Promise.resolve([]),
+  const now = new Date();
+
+  // Wave 1: the day index is the only thing everything else depends on.
+  const dayIdx = await currentDayIndex(supabase);
+
+  // Wave 2: everything that only needs the day index, in parallel.
+  const [plan, streak, xpSummary, newQuests, dueVerses, span] = await Promise.all([
+    buildSessionPlan(supabase, now, "full", dayIdx),
+    computeStreak(supabase, now),
+    reconcileXp(supabase, dayIdx, now),
+    updateQuestProgress(supabase, dayIdx, now),
     supabase
       .from("memory_verses")
       .select("card_id, cards!inner(active, card_states!inner(due_at, suspended))", { count: "exact", head: true })
       .eq("cards.active", true)
       .eq("cards.card_states.suspended", false)
-      .lte("cards.card_states.due_at", new Date().toISOString()),
-    dayIdx != null ? getDaySpan(supabase, dayIdx) : Promise.resolve(null),
+      .lte("cards.card_states.due_at", now.toISOString()),
+    getDaySpan(supabase, dayIdx),
+  ]);
+
+  // Wave 3: things that depend on the plan, the streak or the quest update.
+  const bookSlugs = Array.from(new Set(span.chapters.map((c) => c.book_slug)));
+  const [progress, newBadges, questRows, { data: runs }] = await Promise.all([
+    computeDayProgress(supabase, plan, now),
+    checkAndAwardBadges(supabase, streak),
+    fetchDailyQuests(supabase, dayIdx),
+    bookSlugs.length
+      ? supabase.from("extraction_runs").select("book_slug, chapter").eq("kind", PIPELINE_KIND).in("book_slug", bookSlugs)
+      : Promise.resolve({ data: [] as { book_slug: string; chapter: number }[] }),
   ]);
   const dueVerseCount = dueVerses.count ?? 0;
 
   // Today's chapters that have no questions yet — generate them now rather
   // than waiting for tonight's cron.
-  let pendingChapters: { book: string; chapter: number }[] = [];
-  if (span?.chapters.length) {
-    const { data: runs } = await supabase
-      .from("extraction_runs")
-      .select("book_slug, chapter")
-      .eq("kind", PIPELINE_KIND)
-      .in("book_slug", Array.from(new Set(span.chapters.map((c) => c.book_slug))));
-    const done = new Set((runs ?? []).map((r) => `${r.book_slug}:${r.chapter}`));
-    pendingChapters = span.chapters.filter((c) => !done.has(`${c.book_slug}:${c.chapter}`)).map((c) => ({ book: c.book_slug, chapter: c.chapter }));
-  }
+  const done = new Set((runs ?? []).map((r) => `${r.book_slug}:${r.chapter}`));
+  const pendingChapters = span.chapters.filter((c) => !done.has(`${c.book_slug}:${c.chapter}`)).map((c) => ({ book: c.book_slug, chapter: c.chapter }));
 
   const readingBlock = plan.blocks.find((b) => b.type === "reading");
   const gameBlock = plan.blocks.find((b) => b.type === "game");
@@ -156,14 +161,14 @@ export default async function TodayPage() {
   return (
     <main className="mx-auto max-w-md px-4 pt-8">
       <BadgeToast badges={newBadges} />
-      <QuestToast dayIdx={dayIdx ?? 0} quests={newQuests} />
+      <QuestToast dayIdx={dayIdx} quests={newQuests} />
       <h1 className="text-2xl font-extrabold text-ink">Ma</h1>
 
       <div className="mt-4 flex items-center gap-4">
         <DayRing reading={progress.reading} srs={progress.srs} game={progress.game} />
         <div>
           <p className="text-sm text-ink-muted">
-            {plan.day_idx ? `${plan.day_idx}. nap` : ""}
+            {`${dayIdx}. nap`}
             {allDone ? " · minden kész mára" : remainingMinutes > 0 ? ` · még kb. ${remainingMinutes} perc` : ""}
           </p>
           {streak.current > 0 && (

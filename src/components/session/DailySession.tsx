@@ -10,7 +10,7 @@ import { buildMcqOptionsByCard, interleaveCards } from "@/lib/session/interleave
 import { BLITZ_QUESTIONS, BLITZ_SECONDS, QUIZ_ROUND_SIZE } from "@/lib/session/constants";
 import { gameLabel } from "@/lib/content/games";
 import { recordBlitzResult } from "@/lib/actions/blitz-result";
-import { getXpSummary } from "@/lib/actions/xp-summary";
+import { finishSession } from "@/lib/actions/session-done";
 import type { XpSummary } from "@/lib/xp/reconcile";
 import type { ReviewCard } from "@/lib/review/types";
 
@@ -54,7 +54,7 @@ export function DailySession({ cards, game, streak, dayIdx }: Props) {
 
   useEffect(() => {
     if (phase.kind !== "done") return;
-    void flushPendingReviews().then(() => getXpSummary(dayIdx)).then(setXpSummary);
+    void flushPendingReviews().then(() => finishSession(dayIdx)).then(setXpSummary);
   }, [phase.kind, dayIdx]);
 
   if (ordered.length === 0) {

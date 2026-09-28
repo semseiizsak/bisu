@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { isExactMatch, isCloseMatch } from "@/lib/content/text";
 import { useGameScore } from "@/lib/review/use-game-score";
+import { SessionEnd } from "@/components/session/SessionEnd";
 import type { PersistedCardState } from "@/lib/fsrs/engine";
 
 interface Step {
@@ -45,6 +46,7 @@ export function ChainGame({ steps, line }: { steps: Step[]; line: string }) {
   if (over) {
     return (
       <div className="mt-8 text-center">
+        <SessionEnd />
         <p className="text-2xl font-extrabold text-ink">Streak: {streak}</p>
         <p className="mt-1 text-ink-muted">{line} vonal</p>
       </div>

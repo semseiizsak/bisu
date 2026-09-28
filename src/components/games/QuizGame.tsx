@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { cx } from "@/lib/cx";
 import { useGameScore } from "@/lib/review/use-game-score";
+import { SessionEnd } from "@/components/session/SessionEnd";
 import type { PersistedCardState } from "@/lib/fsrs/engine";
 
 interface Item {
@@ -36,6 +37,7 @@ export function QuizGame({ items, mode }: { items: Item[]; mode: string }) {
   if (!item) {
     return (
       <div className="mt-8 text-center">
+        <SessionEnd />
         <p className="text-2xl font-extrabold text-ink">Kész!</p>
         <p className="mt-1 text-ink-muted">
           {correctCount} / {items.length} helyes

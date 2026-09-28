@@ -3,6 +3,7 @@
 import { useState, type MouseEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { useGameScore } from "@/lib/review/use-game-score";
+import { SessionEnd } from "@/components/session/SessionEnd";
 import type { PersistedCardState } from "@/lib/fsrs/engine";
 
 interface Item {
@@ -49,6 +50,7 @@ export function MapGame({ items }: { items: Item[] }) {
   if (!item) {
     return (
       <div className="mt-8 text-center">
+        <SessionEnd />
         <p className="text-2xl font-extrabold text-ink">Kész!</p>
       </div>
     );

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Reorder } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import { useGameScore } from "@/lib/review/use-game-score";
+import { SessionEnd } from "@/components/session/SessionEnd";
 import type { PersistedCardState } from "@/lib/fsrs/engine";
 
 interface Props {
@@ -59,6 +60,7 @@ export function TimelineGame({ cardId, prompt, payload, state }: Props) {
         })}
       </Reorder.Group>
 
+      {checked && <SessionEnd />}
       {!checked ? (
         <Button className="mt-4 w-full" onClick={check}>
           Ellenőrzés

@@ -91,22 +91,26 @@ export async function updateQuestProgress(db: DB, dayIdx: number, now: Date = ne
   const { data: quests } = await db.from("daily_quests").select("*").eq("day_idx", dayIdx);
   const rows = quests ?? [];
 
-  for (const row of rows) {
-    if (row.completed_at) continue;
-    const def: QuestDef | undefined = QUEST_CATALOG.find((q) => q.key === row.quest_key);
-    if (!def || def.metric === "blitz_perfect") continue;
+  // The three quests are independent — evaluate and write them in parallel.
+  await Promise.all(
+    rows.map(async (row) => {
+      if (row.completed_at) return;
+      const def: QuestDef | undefined = QUEST_CATALOG.find((q) => q.key === row.quest_key);
+      if (!def || def.metric === "blitz_perfect") return;
 
-    const { progress, done } = await computeMetric(db, def.metric, dayIdx, todayStartIso, row.target);
-    const patch: { progress: number; completed_at?: string } = { progress };
-    if (done) patch.completed_at = now.toISOString();
+      const { progress, done } = await computeMetric(db, def.metric, dayIdx, todayStartIso, row.target);
+      if (progress === row.progress && !done) return; // nothing changed, skip the write
+      const patch: { progress: number; completed_at?: string } = { progress };
+      if (done) patch.completed_at = now.toISOString();
 
-    await db.from("daily_quests").update(patch).eq("day_idx", dayIdx).eq("quest_key", row.quest_key);
-    if (done) {
-      await db
-        .from("xp_events")
-        .upsert({ ref: `quest:${dayIdx}:${row.quest_key}`, kind: "quest", amount: row.xp }, { onConflict: "ref" });
-    }
-  }
+      await Promise.all([
+        db.from("daily_quests").update(patch).eq("day_idx", dayIdx).eq("quest_key", row.quest_key),
+        done
+          ? db.from("xp_events").upsert({ ref: `quest:${dayIdx}:${row.quest_key}`, kind: "quest", amount: row.xp }, { onConflict: "ref" })
+          : Promise.resolve(),
+      ]);
+    }),
+  );
 
   const { data: unseen } = await db
     .from("daily_quests")

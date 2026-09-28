@@ -28,13 +28,24 @@ function expandSegments(segments: { book_slug: string; ch_from: number; ch_to: n
   return out;
 }
 
-async function verseCountForChapters(db: DB, chapters: ChapterRef[]): Promise<number> {
-  let total = 0;
+/** Group chapter refs by book so each book costs one query, not one per chapter. */
+function chaptersByBook(chapters: ChapterRef[]): Map<number, number[]> {
+  const map = new Map<number, number[]>();
   for (const c of chapters) {
-    const { count } = await db.from("verses").select("id", { count: "exact", head: true }).eq("book_id", c.book_id).eq("chapter", c.chapter);
-    total += count ?? 0;
+    if (!map.has(c.book_id)) map.set(c.book_id, []);
+    map.get(c.book_id)!.push(c.chapter);
   }
-  return total;
+  return map;
+}
+
+async function verseCountForChapters(db: DB, chapters: ChapterRef[]): Promise<number> {
+  const counts = await Promise.all(
+    Array.from(chaptersByBook(chapters)).map(async ([bookId, chs]) => {
+      const { count } = await db.from("verses").select("id", { count: "exact", head: true }).eq("book_id", bookId).in("chapter", chs);
+      return count ?? 0;
+    }),
+  );
+  return counts.reduce((s, n) => s + n, 0);
 }
 
 /**
@@ -44,33 +55,57 @@ async function verseCountForChapters(db: DB, chapters: ChapterRef[]): Promise<nu
  * Only the quiz card types (question / manual recall / memorized verse)
  * ever enter the quiz blocks; locate / order / chain / map cards belong
  * to the games and are never mixed in.
+ *
+ * Round-trips are batched: three waves of parallel queries instead of a
+ * sequential chain, which is what made the Today page take seconds.
  */
-export async function buildSessionPlan(db: DB, now: Date = new Date(), mode: SessionMode = "full"): Promise<SessionPlan> {
-  const { data: settingsRow } = await db.from("settings").select("daily_budget_minutes, new_cards_per_day").eq("id", 1).maybeSingle();
+export async function buildSessionPlan(db: DB, now: Date = new Date(), mode: SessionMode = "full", knownDayIdx?: number): Promise<SessionPlan> {
+  // Wave 1: settings, books, day index.
+  const [{ data: settingsRow }, { data: booksRows }, dayIdx] = await Promise.all([
+    db.from("settings").select("daily_budget_minutes, new_cards_per_day").eq("id", 1).maybeSingle(),
+    db.from("books").select("id, slug, name_hu"),
+    knownDayIdx != null ? Promise.resolve(knownDayIdx) : currentDayIndex(db),
+  ]);
   const dailyBudget = settingsRow?.daily_budget_minutes ?? DEFAULT_DAILY_BUDGET_MINUTES;
   const newCardsPerDay = settingsRow?.new_cards_per_day ?? DEFAULT_NEW_CARDS_PER_DAY;
-
   const budget = mode === "short" ? Math.min(SHORT_SESSION_MINUTES, dailyBudget) : dailyBudget;
-  const dayIdx = await currentDayIndex(db);
 
-  const { data: booksRows } = await db.from("books").select("id, slug, name_hu");
   const bookBySlug = new Map((booksRows ?? []).map((b) => [b.slug, b.id]));
   const bookById = new Map((booksRows ?? []).map((b) => [b.id, b]));
+
+  // Wave 2: the plan window, due cards and weak books — independent of each other.
+  const [{ data: planRows }, { data: dueRows }, { data: weakScopes }] = await Promise.all([
+    db
+      .from("reading_plan")
+      .select("day_idx, segments, focus_note")
+      .gte("day_idx", Math.max(1, dayIdx - RECENT_READING_DAYS))
+      .lte("day_idx", dayIdx)
+      .order("day_idx"),
+    mode === "reading_only"
+      ? Promise.resolve({ data: null })
+      : db
+          .from("card_states")
+          .select("card_id, stability, lapses, due_at, state, cards!inner(type, active)")
+          .lte("due_at", now.toISOString())
+          .gt("state", 0)
+          .eq("suspended", false)
+          .eq("cards.active", true)
+          .in("cards.type", [...SRS_CARD_TYPES])
+          .order("due_at", { ascending: true })
+          .limit(400),
+    mode === "reading_only"
+      ? Promise.resolve({ data: null })
+      : db.from("mastery").select("scope_type, scope_id, score, card_count").eq("scope_type", "book").gte("card_count", 10).order("score", { ascending: true }).limit(2),
+  ]);
+
+  const todayPlan = (planRows ?? []).find((p) => p.day_idx === dayIdx) ?? null;
+  const todaysChapters = todayPlan ? expandSegments(todayPlan.segments, bookBySlug) : [];
+  const recentChapters = (planRows ?? []).filter((p) => p.day_idx !== dayIdx).flatMap((p) => expandSegments(p.segments, bookBySlug));
 
   const blocks: SessionBlock[] = [];
   let remaining = budget;
 
   // 1. READING ---------------------------------------------------------------
-  const { data: planRows } = await db
-    .from("reading_plan")
-    .select("day_idx, segments, focus_note")
-    .gte("day_idx", Math.max(1, dayIdx - RECENT_READING_DAYS))
-    .lte("day_idx", dayIdx)
-    .order("day_idx");
-  const todayPlan = (planRows ?? []).find((p) => p.day_idx === dayIdx) ?? null;
-  const todaysChapters = todayPlan ? expandSegments(todayPlan.segments, bookBySlug) : [];
-  const recentChapters = (planRows ?? []).filter((p) => p.day_idx !== dayIdx).flatMap((p) => expandSegments(p.segments, bookBySlug));
-
   if (todayPlan && todaysChapters.length) {
     const verseCount = await verseCountForChapters(db, todaysChapters);
     const readingMinutesFull = estimateReadingMinutes(verseCount);
@@ -98,18 +133,6 @@ export async function buildSessionPlan(db: DB, now: Date = new Date(), mode: Ses
   }
 
   // 2. DUE REVIEW (up to 60% of what's left) --------------------------------
-  // state = 0 means "never studied": those are paced through the NEW block.
-  const { data: dueRows } = await db
-    .from("card_states")
-    .select("card_id, stability, lapses, due_at, state, cards!inner(type, active)")
-    .lte("due_at", now.toISOString())
-    .gt("state", 0)
-    .eq("suspended", false)
-    .eq("cards.active", true)
-    .in("cards.type", [...SRS_CARD_TYPES])
-    .order("due_at", { ascending: true })
-    .limit(400);
-
   type DueRow = { card_id: number; stability: number | null; lapses: number; due_at: string; cards: { type: string } | null };
   const due = (dueRows ?? []) as unknown as DueRow[];
 
@@ -136,12 +159,11 @@ export async function buildSessionPlan(db: DB, now: Date = new Date(), mode: Ses
   // 3. NEW CARDS — from the chapters just read, in reading order -------------
   // Avalanche protection: no new material while a big review backlog exists.
   const newBudget = due.length > 120 ? 0 : remaining * 0.3;
+  const newItems: number[] = [];
   if (newBudget > 0 && newCardsPerDay > 0) {
-    const newItems: number[] = [];
+    type NewRow = { id: number; type: string; book_id: number | null; chapter: number | null };
     const seen = new Set<number>();
     let newMinutes = 0;
-
-    type NewRow = { id: number; type: string };
     const takeFrom = (rows: NewRow[]) => {
       for (const c of rows) {
         if (newItems.length >= newCardsPerDay) return;
@@ -154,29 +176,30 @@ export async function buildSessionPlan(db: DB, now: Date = new Date(), mode: Ses
       }
     };
 
-    const unstudiedInChapter = async (c: ChapterRef): Promise<NewRow[]> => {
-      const { data } = await db
-        .from("cards")
-        .select("id, type, difficulty, card_states!inner(state, suspended)")
-        .eq("active", true)
-        .eq("book_id", c.book_id)
-        .eq("chapter", c.chapter)
-        .in("type", [...SRS_CARD_TYPES])
-        .eq("card_states.state", 0)
-        .eq("card_states.suspended", false)
-        .order("difficulty", { ascending: true })
-        .limit(40);
-      return (data ?? []) as NewRow[];
-    };
+    // (a) today's and the previous two days' chapters: one query per book,
+    // then ordered by the reading order of the chapters.
+    const recent = [...todaysChapters, ...recentChapters];
+    const chapterRank = new Map(recent.map((c, i) => [`${c.book_id}:${c.chapter}`, i]));
+    const perBook = await Promise.all(
+      Array.from(chaptersByBook(recent)).map(async ([bookId, chs]) => {
+        const { data } = await db
+          .from("cards")
+          .select("id, type, book_id, chapter, difficulty, card_states!inner(state, suspended)")
+          .eq("active", true)
+          .eq("book_id", bookId)
+          .in("chapter", chs)
+          .in("type", [...SRS_CARD_TYPES])
+          .eq("card_states.state", 0)
+          .eq("card_states.suspended", false)
+          .order("difficulty", { ascending: true })
+          .limit(120);
+        return (data ?? []) as NewRow[];
+      }),
+    );
+    const recentRows = perBook.flat().sort((a, b) => (chapterRank.get(`${a.book_id}:${a.chapter}`) ?? 1e9) - (chapterRank.get(`${b.book_id}:${b.chapter}`) ?? 1e9));
+    takeFrom(recentRows);
 
-    // (a) today's chapters, (b) the previous two plan days — you review what
-    // you just read, not a random slice of the corpus.
-    for (const c of [...todaysChapters, ...recentChapters]) {
-      if (newItems.length >= newCardsPerDay) break;
-      takeFrom(await unstudiedInChapter(c));
-    }
-
-    // (c) fallback in canonical reading order, so nothing ever jumps ahead
+    // (b) fallback in canonical reading order, so nothing ever jumps ahead
     // of where the plan is.
     if (newItems.length < newCardsPerDay) {
       const { data: rest } = await db
@@ -200,32 +223,27 @@ export async function buildSessionPlan(db: DB, now: Date = new Date(), mode: Ses
 
   // 4. WEAK POINTS (10% of remaining) ---------------------------------------
   const weakBudget = remaining * 0.1;
-  const { data: weakScopes } = await db
-    .from("mastery")
-    .select("scope_type, scope_id, score, card_count")
-    .eq("scope_type", "book")
-    .gte("card_count", 10)
-    .order("score", { ascending: true })
-    .limit(2);
-
   if (weakScopes?.length && weakBudget > 1) {
+    const already = new Set([...reviewItems, ...newItems]);
     const weakItems: number[] = [];
-    const already = new Set([...reviewItems, ...blocks.filter((b) => b.type === "new").flatMap((b) => b.items.map((i) => i.card_id))]);
     let weakMinutes = 0;
-    for (const scope of weakScopes) {
+    const bookIds = weakScopes.map((s) => bookBySlug.get(s.scope_id)).filter((id): id is number => id != null);
+    const perBook = await Promise.all(
+      bookIds.map((bookId) =>
+        db
+          .from("cards")
+          .select("id, type, card_states!inner(lapses, stability, state, suspended)")
+          .eq("active", true)
+          .eq("book_id", bookId)
+          .in("type", [...SRS_CARD_TYPES])
+          .gt("card_states.state", 0)
+          .eq("card_states.suspended", false)
+          .or("lapses.gt.0,stability.lt.7", { referencedTable: "card_states" })
+          .limit(20),
+      ),
+    );
+    for (const { data: weakCards } of perBook) {
       if (weakMinutes >= weakBudget) break;
-      const bookId = bookBySlug.get(scope.scope_id);
-      if (!bookId) continue;
-      const { data: weakCards } = await db
-        .from("cards")
-        .select("id, type, card_states!inner(lapses, stability, state, suspended)")
-        .eq("active", true)
-        .eq("book_id", bookId)
-        .in("type", [...SRS_CARD_TYPES])
-        .gt("card_states.state", 0)
-        .eq("card_states.suspended", false)
-        .or("lapses.gt.0,stability.lt.7", { referencedTable: "card_states" })
-        .limit(20);
       for (const c of (weakCards ?? []) as { id: number; type: string }[]) {
         if (already.has(c.id)) continue;
         const cost = estimateCardMinutes(c.type as CardType);

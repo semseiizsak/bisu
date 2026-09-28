@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { numericDistractors } from "@/lib/content/distractors";
 import { useGameScore } from "@/lib/review/use-game-score";
+import { SessionEnd } from "@/components/session/SessionEnd";
 import type { PersistedCardState } from "@/lib/fsrs/engine";
 
 interface Item {
@@ -79,6 +80,7 @@ export function NumbersGame({ items }: { items: Item[] }) {
   if (finished) {
     return (
       <div className="mt-8 text-center">
+        <SessionEnd />
         <p className="text-2xl font-extrabold text-ink">Idő!</p>
         <p className="mt-1 text-ink-muted">
           {correct} / {answered} helyes

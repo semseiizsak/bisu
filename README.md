@@ -24,7 +24,7 @@ cp .env.local.example .env.local   # fill in Supabase + OpenAI keys
 ```
 
 Apply the migrations in order to your Supabase project (SQL Editor, or via
-the Supabase MCP tool): `supabase/migrations/0001_init.sql` … `0013_questions.sql`.
+the Supabase MCP tool): `supabase/migrations/0001_init.sql` … `0014_activity_functions.sql`.
 
 Seed content:
 

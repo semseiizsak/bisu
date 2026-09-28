@@ -11,11 +11,11 @@ type BadgeRow = Database["public"]["Tables"]["badges"]["Row"];
  * Awards any badge whose metric now clears its threshold, and returns the
  * badges that are earned but not yet shown so the caller can toast them.
  */
-export async function checkAndAwardBadges(db: DB): Promise<BadgeRow[]> {
+export async function checkAndAwardBadges(db: DB, precomputedStreak?: { current: number }): Promise<BadgeRow[]> {
   const [{ data: badges }, streak, bossWinsResult, booksMasteredResult, totalActiveResult, masteredCardsResult, totalReviewsResult] =
     await Promise.all([
       db.from("badges").select("*"),
-      computeStreak(db),
+      precomputedStreak ?? computeStreak(db),
       db.from("mastery").select("scope_id", { count: "exact", head: true }).eq("scope_type", "book").not("boss_beaten_at", "is", null),
       db.from("mastery").select("scope_id", { count: "exact", head: true }).eq("scope_type", "book").gte("score", 0.9),
       db.from("cards").select("id", { count: "exact", head: true }).eq("active", true),

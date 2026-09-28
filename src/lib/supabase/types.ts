@@ -307,7 +307,10 @@ export interface Database {
       chapter_notes: Table<ChapterNotesRow, Pick<ChapterNotesRow, "book_id" | "chapter" | "summary" | "context" | "model"> & Partial<ChapterNotesRow>>;
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      activity_days: { Args: Record<string, never>; Returns: string[] };
+      xp_totals: { Args: { since: string }; Returns: { total: number; recent: number }[] };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

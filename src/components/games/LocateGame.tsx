@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cx } from "@/lib/cx";
 import { Button } from "@/components/ui/Button";
 import { useGameScore } from "@/lib/review/use-game-score";
+import { SessionEnd } from "@/components/session/SessionEnd";
 import type { PersistedCardState, FsrsRating } from "@/lib/fsrs/engine";
 
 interface Item {
@@ -56,6 +57,7 @@ export function LocateGame({ items, books }: { items: Item[]; books: BookOption[
   if (!item) {
     return (
       <div className="text-center">
+        <SessionEnd />
         <p className="text-2xl font-extrabold text-ink">Kész!</p>
         <p className="mt-1 text-ink-muted">{Math.round(score * 10) / 10} / {items.length} pont</p>
       </div>

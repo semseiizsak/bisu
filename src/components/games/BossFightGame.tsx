@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { cx } from "@/lib/cx";
 import { useGameScore } from "@/lib/review/use-game-score";
+import { SessionEnd } from "@/components/session/SessionEnd";
 import { getBossCards, applyBossBonus } from "@/app/(app)/jatekok/boss/actions";
 import { BadgeToast } from "@/components/badges/BadgeToast";
 import type { PersistedCardState } from "@/lib/fsrs/engine";
@@ -94,6 +95,7 @@ export function BossFightGame({ books }: { books: BookOption[] }) {
     return (
       <div className="mt-8 text-center">
         <BadgeToast badges={newBadges} />
+        <SessionEnd />
         <p className="text-3xl font-extrabold text-ink">{pct}%</p>
         <p className="mt-1 text-ink-muted">
           {correctCount} / {items.length} helyes — {book.name}
