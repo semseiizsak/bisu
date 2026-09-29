@@ -13,8 +13,17 @@ import type { Database } from "@/lib/supabase/types";
  */
 export const SUPABASE_SCHEMA = (process.env.SUPABASE_SCHEMA?.trim() || "bisu") as "bisu";
 
+/** The URL is only ever read on the server, so a non-public name is fine;
+ * the first one set wins (NEXT_PUBLIC_SUPABASE_URL is kept last for old
+ * deployments that still carry it). */
+export function supabaseUrl(): string {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) throw new Error("Missing SUPABASE_URL / NEXT_SUPABASE_URL");
+  return url;
+}
+
 export async function createClient() {
-  return createSupabaseClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  return createSupabaseClient<Database>(supabaseUrl(), process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     db: { schema: SUPABASE_SCHEMA },
     auth: { persistSession: false, autoRefreshToken: false },
   });
