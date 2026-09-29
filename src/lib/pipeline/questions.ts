@@ -49,6 +49,16 @@ MIT NE KÉRDEZZ:
 - Olyat, amit a kérdés szövege maga elárul.
 - Két kérdést ugyanarra a tényre.
 
+NEHÉZSÉG — ez a legfontosabb:
+- A kérdések LEGALÁBB FELE legyen olyan, amit csak a fejezet FIGYELMES
+  olvasója tud megválaszolni (difficulty 3–5): konkrét részlet, indok,
+  sorrend, pontos megfogalmazás, mi történt közvetlenül ezután.
+- Fejezetenként legfeljebb EGY difficulty 1-es "vasárnapi iskolai" alapkérdés
+  (pl. "Ki ölte meg Ábelt?"). Amit bárki tud olvasás nélkül, az nem ér semmit.
+- Ha a szakasz közismert (teremtés, bűneset, özönvíz), a kevésbé ismert
+  részletekre kérdezz: mit mondott pontosan, milyen sorrendben, mi volt a
+  feltétel, mit tett utána.
+
 KÉRDÉSEK FORMÁJA:
 - Önállóan érthető, nevezze meg a szereplőt/könyvet — SOHA ne írd, hogy
   "ebben a fejezetben".
@@ -58,8 +68,12 @@ KÉRDÉSEK FORMÁJA:
   alak, szám betűvel), üres tömb is lehet.
 - distractors: PONTOSAN 3 hamis válasz, amelyek UGYANOLYAN FAJTÁJÚAK, mint a
   helyes válasz (személy mellé személyek, hely mellé helyek, cselekedet mellé
-  cselekedetek, szám mellé közeli számok), és csábítóak annak, aki csak
-  félig emlékszik — lehetőleg ugyanabból a könyvből/történetből. Sose legyen
+  cselekedetek, szám mellé közeli számok). A hamis válaszok VALÓS elemek
+  legyenek ugyanabból a fejezetből vagy a szomszédos történetből (más
+  szereplő tette, más helyen hangzott el, más okból történt) — ne kitalált,
+  a szövegben elő sem forduló mondatok. Ugyanolyan hosszúak és ugyanolyan
+  stílusúak legyenek, mint a helyes válasz, hogy a forma ne árulja el.
+  Annak, aki csak félig emlékszik, mindhárom legyen csábító. Sose legyen
   abszurd vagy nyilvánvalóan kizárható.
 - why: EGY mondat, ami a válasz után megjelenik: miért fontos ez, mihez
   kapcsolódik, mit jelent — ez adja a mélységet.

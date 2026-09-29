@@ -9,7 +9,9 @@ export interface GameQuestion {
   id: number;
   prompt: string;
   answer: string;
+  answer_alt: string[];
   options: string[];
+  difficulty: number;
   state: PersistedCardState;
 }
 
@@ -28,7 +30,7 @@ export async function loadGameQuestions(
 ): Promise<GameQuestion[]> {
   let query = db
     .from("cards")
-    .select("id, prompt, answer, payload, card_states!inner(stability, difficulty, due_at, last_review, reps, lapses, state, suspended)")
+    .select("id, prompt, answer, answer_alt, difficulty, payload, card_states!inner(stability, difficulty, due_at, last_review, reps, lapses, state, suspended)")
     .eq("type", "question")
     .eq("active", true)
     .eq("card_states.suspended", false)
@@ -41,6 +43,8 @@ export async function loadGameQuestions(
     id: number;
     prompt: string;
     answer: string;
+    answer_alt: string[] | null;
+    difficulty: number;
     payload: QuestionPayload | null;
     card_states: PersistedCardState & { suspended: boolean } | (PersistedCardState & { suspended: boolean })[] | null;
   };
@@ -58,6 +62,8 @@ export async function loadGameQuestions(
       id: r.id,
       prompt: r.prompt,
       answer: r.answer,
+      answer_alt: r.answer_alt ?? [],
+      difficulty: r.difficulty,
       options: Array.from(new Set(r.payload?.options ?? [])),
       state: r.state,
     }))
