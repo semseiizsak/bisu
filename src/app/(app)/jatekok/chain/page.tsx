@@ -63,7 +63,7 @@ export default async function ChainPage() {
       <Link href="/jatekok" className="text-sm font-extrabold text-ink-muted">
         ← Játékok
       </Link>
-      <h1 className="mt-2 text-2xl font-extrabold text-ink">Genealógia-lánc</h1>
+      <h1 className="mt-2 text-2xl font-black text-ink">Genealógia-lánc</h1>
       {steps.length >= 2 ? (
         <ChainGame steps={steps} line={line ?? ""} />
       ) : (

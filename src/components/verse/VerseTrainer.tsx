@@ -130,7 +130,7 @@ export function VerseTrainer({ card, onDone }: Props) {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-sm font-extrabold text-ink-faint">{reference}</p>
-        <div className="rounded-lg border border-line bg-surface p-6 text-center">
+        <div className="rounded-3xl border-2 border-line bg-surface p-6 text-center">
           <p className="font-serif text-lg leading-relaxed text-ink">{text}</p>
         </div>
         <Button size="lg" onClick={confirmRead}>
@@ -145,7 +145,7 @@ export function VerseTrainer({ card, onDone }: Props) {
       <p className="text-sm font-extrabold text-ink-faint">
         {reference} · {stage === 2 ? "Kezdőbetűk" : "Vakteszt"}
       </p>
-      <div className="rounded-lg border border-line bg-surface p-6 text-center font-serif text-lg leading-relaxed text-ink">
+      <div className="rounded-3xl border-2 border-line bg-surface p-6 text-center font-serif text-lg leading-relaxed text-ink">
         {words.map((w, i) => (
           <span key={i} className={cx("mr-1.5 inline-block", i === revealedCount && "text-accent")}>
             {i < revealedCount ? w : skeleton(w, stage)}

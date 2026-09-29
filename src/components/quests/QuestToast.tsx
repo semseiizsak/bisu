@@ -38,15 +38,18 @@ export function QuestToast({ dayIdx, quests }: { dayIdx: number; quests: QuestIn
         {current && (
           <motion.div
             key={current.quest_key}
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-            className="pointer-events-auto w-full max-w-sm rounded-lg border border-line-strong bg-surface p-4 shadow-lg"
+            initial={{ opacity: 0, y: -16, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 420, damping: 26 }}
+            className="pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-3xl border-2 border-good/50 bg-good/15 p-4 shadow-lg backdrop-blur"
           >
-            <p className="text-sm font-extrabold text-accent">Küldetés teljesítve!</p>
-            <p className="mt-0.5 font-extrabold text-ink">{current.label_hu}</p>
-            <p className="mt-0.5 text-sm text-ink-muted">+{current.xp} XP</p>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-good text-2xl shadow-[0_3px_0_0_var(--color-good-deep)]">⭐</div>
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-wide text-good">Bónusz teljesítve!</p>
+              <p className="font-black text-ink">{current.label_hu}</p>
+              <p className="text-xs font-black text-good">+{current.xp} XP</p>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

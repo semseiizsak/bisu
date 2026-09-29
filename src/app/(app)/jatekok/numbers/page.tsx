@@ -17,7 +17,7 @@ export default async function NumbersPage() {
       <Link href="/jatekok" className="text-sm font-extrabold text-ink-muted">
         ← Játékok
       </Link>
-      <h1 className="mt-2 text-2xl font-extrabold text-ink">Számháború</h1>
+      <h1 className="mt-2 text-2xl font-black text-ink">Számháború</h1>
       {items.length >= 5 ? <NumbersGame items={items} /> : <p className="mt-6 text-ink-muted">Nincs még elég szám-kérdés — olvass tovább.</p>}
     </main>
   );

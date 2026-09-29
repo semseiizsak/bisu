@@ -99,7 +99,7 @@ export default async function ChapterPage({
       )}
 
       {inDailyFlow && focusNote && spanPos === 0 && (
-        <p className="mt-3 rounded-md border border-line-strong bg-paper px-3 py-2 text-sm text-ink-muted">{focusNote}</p>
+        <p className="mt-3 rounded-2xl border-2 border-line-strong bg-paper px-3 py-2 text-sm text-ink-muted">{focusNote}</p>
       )}
 
       <div className="mt-6">

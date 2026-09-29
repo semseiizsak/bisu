@@ -47,7 +47,7 @@ export function ChainGame({ steps, line }: { steps: Step[]; line: string }) {
     return (
       <div className="mt-8 text-center">
         <SessionEnd />
-        <p className="text-2xl font-extrabold text-ink">Streak: {streak}</p>
+        <p className="text-2xl font-black text-ink">Streak: {streak}</p>
         <p className="mt-1 text-ink-muted">{line} vonal</p>
       </div>
     );
@@ -56,7 +56,7 @@ export function ChainGame({ steps, line }: { steps: Step[]; line: string }) {
   return (
     <div className="mt-6">
       <p className="text-sm text-ink-faint">Streak: {streak}</p>
-      <div className="mt-2 rounded-lg border border-line bg-surface p-6 text-center">
+      <div className="mt-2 rounded-3xl border-2 border-line bg-surface p-6 text-center">
         <p className="text-lg text-ink">
           Ki volt {isFirst ? step.childName : "az ő"} apja
           {!isFirst ? "" : ` (${step.childName})`}?

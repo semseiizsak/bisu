@@ -144,7 +144,7 @@ export function ReaderClient({ verses, bookId, bookShort, chapter }: Props) {
 
       {selection && (
         <div className="fixed inset-x-0 bottom-20 z-30 mx-auto max-w-md px-4">
-          <div className="rounded-lg border border-line-strong bg-surface p-4 shadow-lg">
+          <div className="rounded-3xl border-2 border-line-strong bg-surface p-4 shadow-lg">
             <p className="line-clamp-2 text-sm text-ink-muted">
               Kijelölve: <span className="italic">&ldquo;{selection.text}&rdquo;</span>
             </p>

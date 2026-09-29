@@ -30,7 +30,7 @@ export default async function LocatePage() {
       <Link href="/jatekok" className="text-sm font-extrabold text-ink-muted">
         ← Játékok
       </Link>
-      <h1 className="mt-2 text-2xl font-extrabold text-ink">Hol vagyok?</h1>
+      <h1 className="mt-2 text-2xl font-black text-ink">Hol vagyok?</h1>
       <div className="mt-6">
         <LocateGame items={items} books={books ?? []} />
       </div>

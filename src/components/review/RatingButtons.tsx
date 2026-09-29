@@ -1,11 +1,11 @@
 import { cx } from "@/lib/cx";
 import type { FsrsRating } from "@/lib/fsrs/engine";
 
-const RATINGS: { rating: FsrsRating; label: string; keyHint: string; className: string }[] = [
-  { rating: 1, label: "Újra", keyHint: "1", className: "bg-bad text-paper" },
-  { rating: 2, label: "Nehéz", keyHint: "2", className: "bg-warn text-paper" },
-  { rating: 3, label: "Jó", keyHint: "3", className: "bg-good text-paper" },
-  { rating: 4, label: "Könnyű", keyHint: "4", className: "bg-ink text-paper" },
+const RATINGS: { rating: FsrsRating; label: string; emoji: string; className: string }[] = [
+  { rating: 1, label: "Újra", emoji: "😵", className: "bg-bad text-white shadow-[0_4px_0_0_var(--color-bad-deep)] [--press-color:var(--color-bad-deep)]" },
+  { rating: 2, label: "Nehéz", emoji: "😅", className: "bg-warn text-ink shadow-[0_4px_0_0_var(--color-gold-deep)] [--press-color:var(--color-gold-deep)]" },
+  { rating: 3, label: "Jó", emoji: "🙂", className: "bg-good text-white shadow-[0_4px_0_0_var(--color-good-deep)] [--press-color:var(--color-good-deep)]" },
+  { rating: 4, label: "Könnyű", emoji: "😎", className: "bg-sky text-white shadow-[0_4px_0_0_var(--color-sky-deep)] [--press-color:var(--color-sky-deep)]" },
 ];
 
 export function RatingButtons({ onRate, suggested }: { onRate: (r: FsrsRating) => void; suggested?: FsrsRating }) {
@@ -16,13 +16,13 @@ export function RatingButtons({ onRate, suggested }: { onRate: (r: FsrsRating) =
           key={r.rating}
           onClick={() => onRate(r.rating)}
           className={cx(
-            "tap-target flex flex-col items-center gap-1 rounded-md py-3 font-extrabold transition-transform duration-[var(--dur-fast)] ease-[var(--ease-standard)]",
+            "tap-target press flex flex-col items-center gap-0.5 rounded-2xl py-2.5 font-black",
             r.className,
-            suggested === r.rating && "ring-2 ring-offset-2 ring-ink ring-offset-paper scale-[1.03]",
+            suggested === r.rating ? "scale-[1.04] ring-2 ring-ink/70 ring-offset-2 ring-offset-paper" : "opacity-85",
           )}
         >
-          <span>{r.label}</span>
-          <span className="text-xs font-medium opacity-70">{r.keyHint}</span>
+          <span className="text-xl">{r.emoji}</span>
+          <span className="text-sm">{r.label}</span>
         </button>
       ))}
     </div>

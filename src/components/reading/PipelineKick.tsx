@@ -58,7 +58,7 @@ export function PipelineKick({ chapters, compact = false }: Props) {
           : "";
 
   return (
-    <div className={compact ? "flex items-center justify-between gap-3 text-sm" : "rounded-lg border border-line bg-surface p-4"}>
+    <div className={compact ? "flex items-center justify-between gap-3 text-sm" : "rounded-3xl border-2 border-line bg-surface p-4"}>
       <p className={status === "error" ? "text-bad" : "text-ink-muted"}>
         {status === "running" && <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-accent align-middle" />}
         {label}

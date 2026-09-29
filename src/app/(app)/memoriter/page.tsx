@@ -35,7 +35,7 @@ export default async function MemoriterPage() {
 
   return (
     <main className="mx-auto max-w-md px-4 pt-8 pb-6">
-      <h1 className="text-2xl font-extrabold text-ink">Memoriter</h1>
+      <h1 className="text-2xl font-black text-ink">Memoriter</h1>
       <p className="mt-1 text-sm text-ink-muted">
         Olvasás közben jelölj ki egy szövegrészt, és válaszd a &bdquo;Megtanulom kívülről&rdquo; lehetőséget — a versek a napi
         ismétléssel együtt kerülnek elő.

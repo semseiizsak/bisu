@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { inter, reading } from "@/lib/fonts";
+import { sans, reading } from "@/lib/fonts";
 import { SplashScreen } from "@/components/SplashScreen";
 import { MotionProvider } from "@/components/MotionProvider";
 import { AppUpdateWatcher } from "@/components/AppUpdateWatcher";
@@ -45,6 +45,11 @@ export const metadata: Metadata = {
     title: "Biblia Mastery",
     startupImage,
   },
+  // Next only emits the generic `mobile-web-app-capable`; iOS still keys its
+  // standalone behaviour off the Apple-prefixed tag, so add it explicitly.
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {
@@ -64,7 +69,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="hu" className={`${inter.variable} ${reading.variable} h-full antialiased`}>
+    <html lang="hu" className={`${sans.variable} ${reading.variable} h-full antialiased`}>
       <body className="min-h-dvh flex flex-col bg-paper text-ink">
         <MotionProvider>
           <AppUpdateWatcher />

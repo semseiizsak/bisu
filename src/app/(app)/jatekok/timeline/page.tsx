@@ -25,7 +25,7 @@ export default async function TimelinePage() {
       <Link href="/jatekok" className="text-sm font-extrabold text-ink-muted">
         ← Játékok
       </Link>
-      <h1 className="mt-2 text-2xl font-extrabold text-ink">Idővonal</h1>
+      <h1 className="mt-2 text-2xl font-black text-ink">Idővonal</h1>
       {pick ? (
         <TimelineGame
           cardId={pick.id}

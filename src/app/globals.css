@@ -3,17 +3,30 @@
 :root {
   --color-paper: #fbfaf8;
   --color-surface: #ffffff;
-  --color-ink: #16140f;
-  --color-ink-muted: #6b6558;
-  --color-ink-faint: #a39d8e;
-  --color-line: #e6e2d8;
-  --color-line-strong: #cfc9b8;
-  --color-accent: #a13d2d;
-  --color-accent-ink: #fbfaf8;
-  --color-good: #2f6b4f;
-  --color-warn: #a1752d;
-  --color-bad: #a13d2d;
+  --color-ink: #2a2118;
+  --color-ink-muted: #6f6558;
+  --color-ink-faint: #a89e8e;
+  --color-line: #ece5d8;
+  --color-line-strong: #d8cdb9;
+
+  /* Playful palette: each daily step has its own colour. */
+  --color-accent: #ee5a2c;
+  --color-accent-deep: #c2411a;
+  --color-accent-ink: #ffffff;
+  --color-gold: #f5b400;
+  --color-gold-deep: #c78e00;
+  --color-good: #1fa46b;
+  --color-good-deep: #157a4f;
+  --color-sky: #2f7de1;
+  --color-sky-deep: #205db0;
+  --color-violet: #7a4df0;
+  --color-violet-deep: #5b34c4;
+  --color-warn: #f39c12;
+  --color-bad: #e5484d;
+  --color-bad-deep: #b83438;
+
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
   --dur-fast: 120ms;
   --dur-standard: 200ms;
 }
@@ -21,17 +34,27 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --color-paper: #14130f;
-    --color-surface: #1b1a15;
-    --color-ink: #f3f1ea;
-    --color-ink-muted: #a29c8c;
-    --color-ink-faint: #6b6558;
+    --color-surface: #1d1b16;
+    --color-ink: #f5f1e8;
+    --color-ink-muted: #a9a08f;
+    --color-ink-faint: #6f6858;
     --color-line: #2c2a22;
-    --color-line-strong: #3d3a2f;
-    --color-accent: #d97a5f;
-    --color-accent-ink: #14130f;
-    --color-good: #6fbf96;
-    --color-warn: #d9a25f;
-    --color-bad: #d97a5f;
+    --color-line-strong: #403c30;
+
+    --color-accent: #ff7d55;
+    --color-accent-deep: #c4502e;
+    --color-accent-ink: #1a120c;
+    --color-gold: #ffc83d;
+    --color-gold-deep: #b98c17;
+    --color-good: #4ad494;
+    --color-good-deep: #23955f;
+    --color-sky: #6aa9ff;
+    --color-sky-deep: #3b73c9;
+    --color-violet: #a88cff;
+    --color-violet-deep: #6f52d4;
+    --color-warn: #f7b04a;
+    --color-bad: #ff6b6b;
+    --color-bad-deep: #c04545;
   }
 }
 
@@ -44,11 +67,20 @@
   --color-line: var(--color-line);
   --color-line-strong: var(--color-line-strong);
   --color-accent: var(--color-accent);
+  --color-accent-deep: var(--color-accent-deep);
   --color-accent-ink: var(--color-accent-ink);
+  --color-gold: var(--color-gold);
+  --color-gold-deep: var(--color-gold-deep);
   --color-good: var(--color-good);
+  --color-good-deep: var(--color-good-deep);
+  --color-sky: var(--color-sky);
+  --color-sky-deep: var(--color-sky-deep);
+  --color-violet: var(--color-violet);
+  --color-violet-deep: var(--color-violet-deep);
   --color-warn: var(--color-warn);
   --color-bad: var(--color-bad);
-  --font-sans: var(--font-inter);
+  --color-bad-deep: var(--color-bad-deep);
+  --font-sans: var(--font-sans);
   --font-serif: var(--font-reading);
 }
 
@@ -63,7 +95,7 @@ html {
 body {
   background: var(--color-paper);
   color: var(--color-ink);
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans), ui-rounded, ui-sans-serif, system-ui, sans-serif;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -85,8 +117,18 @@ body {
   background: color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
-/* Boot splash — pure CSS so it animates before any JavaScript loads.
-   (The global prefers-reduced-motion rule above neutralizes these too.) */
+/* Chunky "pressable" surfaces: a solid bottom edge that collapses on press. */
+.press {
+  transition:
+    transform var(--dur-fast) var(--ease-standard),
+    box-shadow var(--dur-fast) var(--ease-standard);
+}
+.press:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 0 var(--press-color, var(--color-line-strong)) !important;
+}
+
+/* Boot splash — pure CSS so it animates before any JavaScript loads. */
 @keyframes splash-pulse {
   0%,
   100% {
@@ -106,4 +148,103 @@ body {
   100% {
     transform: translateX(310%);
   }
+}
+
+/* Playful motion helpers. */
+@keyframes pop-in {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.pop-in {
+  animation: pop-in 320ms var(--ease-pop) both;
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-6deg) scale(1);
+  }
+  50% {
+    transform: rotate(6deg) scale(1.08);
+  }
+}
+.wiggle {
+  animation: wiggle 1.4s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ring-color, var(--color-accent)) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 14px color-mix(in srgb, var(--ring-color, var(--color-accent)) 0%, transparent);
+  }
+}
+.pulse-ring {
+  animation: pulse-ring 1.6s var(--ease-standard) infinite;
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-140%) rotate(20deg);
+  }
+  100% {
+    transform: translateX(240%) rotate(20deg);
+  }
+}
+.shine {
+  position: relative;
+  overflow: hidden;
+}
+.shine::after {
+  content: "";
+  position: absolute;
+  inset: -40% auto -40% 0;
+  width: 35%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: shine 2.8s ease-in-out infinite;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translate3d(0, -10px, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--rot));
+    opacity: 0;
+  }
+}
+.confetti-piece {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 10px;
+  height: 14px;
+  border-radius: 3px;
+  animation: confetti-fall var(--dur, 1.6s) cubic-bezier(0.2, 0.7, 0.4, 1) var(--delay, 0s) both;
+}
+
+@keyframes float-up {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-36px);
+    opacity: 0;
+  }
+}
+.float-up {
+  animation: float-up 900ms ease-out both;
 }

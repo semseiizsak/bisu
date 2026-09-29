@@ -1,12 +1,14 @@
-import { Inter, Literata } from "next/font/google";
+import { Nunito, Literata } from "next/font/google";
 
-export const inter = Inter({
-  variable: "--font-inter",
+/** Rounded, friendly UI face — the whole app leans on its 800/900 weights. */
+export const sans = Nunito({
+  variable: "--font-sans",
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "800"],
+  weight: ["400", "600", "700", "800", "900"],
   display: "swap",
 });
 
+/** Bible text only. */
 export const reading = Literata({
   variable: "--font-reading",
   subsets: ["latin", "latin-ext"],

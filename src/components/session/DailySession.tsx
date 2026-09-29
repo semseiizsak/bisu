@@ -8,10 +8,12 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { flushPendingReviews } from "@/lib/db/sync";
 import { buildMcqOptionsByCard, interleaveCards } from "@/lib/session/interleave";
 import { BLITZ_QUESTIONS, BLITZ_SECONDS, QUIZ_ROUND_SIZE } from "@/lib/session/constants";
-import { gameLabel } from "@/lib/content/games";
+import { gameEmoji, gameLabel } from "@/lib/content/games";
+import { Confetti } from "@/components/ui/Confetti";
 import { recordBlitzResult } from "@/lib/actions/blitz-result";
 import { finishSession } from "@/lib/actions/session-done";
 import type { XpSummary } from "@/lib/xp/reconcile";
+import { XP } from "@/lib/xp/constants";
 import type { ReviewCard } from "@/lib/review/types";
 
 interface Props {
@@ -71,29 +73,36 @@ export function DailySession({ cards, game, streak, dayIdx }: Props) {
 
   if (phase.kind === "done") {
     const pct = totalDone ? Math.round((totalCorrect / totalDone) * 100) : 0;
+    const mood = pct >= 90 ? "🤩" : pct >= 70 ? "😄" : pct >= 50 ? "🙂" : "💪";
     return (
       <div>
         <FlowStepper stage={4} />
-        <div className="flex flex-col items-center gap-3 py-10 text-center">
-          <p className="text-3xl font-extrabold text-ink">Kész a mai nap!</p>
-          <p className="text-ink-muted">
-            {totalCorrect}/{totalDone} helyes válasz ({pct}%)
-          </p>
-          {xpSummary && (
-            <p className="text-sm font-extrabold text-accent">
-              +{xpSummary.todayXp} XP ma · Szint {xpSummary.level}
+        <div className="relative">
+          <Confetti />
+          <div className="pop-in flex flex-col items-center gap-2 py-8 text-center">
+            <p className="text-6xl">{mood}</p>
+            <p className="text-3xl font-black text-ink">Kvíz kész!</p>
+            <p className="font-bold text-ink-muted">
+              {totalCorrect}/{totalDone} helyes · {pct}%
             </p>
-          )}
-          {streak > 0 && <p className="text-sm font-extrabold text-accent">{streak} napos sorozat</p>}
-          <div className="mt-4 flex flex-col gap-3">
-            {game && (
-              <ButtonLink size="lg" href={`/jatekok/${game}`}>
-                Mai játék: {gameLabel(game)}
+            <div className="mt-3 flex gap-2">
+              {xpSummary && (
+                <span className="rounded-2xl bg-violet/15 px-3 py-1.5 text-sm font-black text-violet">
+                  +{xpSummary.todayXp} XP ma · Szint {xpSummary.level}
+                </span>
+              )}
+              {streak > 0 && <span className="rounded-2xl bg-gold/20 px-3 py-1.5 text-sm font-black text-ink">🔥 {streak}</span>}
+            </div>
+            <div className="mt-6 flex w-full flex-col gap-3">
+              {game && (
+                <ButtonLink size="lg" variant="violet" href={`/jatekok/${game}`}>
+                  {gameEmoji(game)} Mai játék: {gameLabel(game)}
+                </ButtonLink>
+              )}
+              <ButtonLink size="lg" variant={game ? "ghost" : "primary"} href="/ma">
+                Vissza a mai naphoz
               </ButtonLink>
-            )}
-            <ButtonLink size="lg" variant={game ? "ghost" : "primary"} href="/ma">
-              Vissza a mai naphoz
-            </ButtonLink>
+            </div>
           </div>
         </div>
       </div>
@@ -105,18 +114,27 @@ export function DailySession({ cards, game, streak, dayIdx }: Props) {
     const blitzPool = rounds[phase.idx].filter((c) => mcqOptionsByCard.has(c.id));
     const canBlitz = !isLastRound && blitzPool.length >= 2;
     const roundPct = phase.roundTotal ? Math.round((phase.roundCorrect / phase.roundTotal) * 100) : 0;
+    const donePct = ordered.length ? Math.round((totalDone / ordered.length) * 100) : 0;
     return (
       <div>
         <FlowStepper stage={3} detail={`${phase.idx + 1}/${rounds.length}. kör kész`} />
-        <div className="flex flex-col items-center gap-3 py-10 text-center">
-          <p className="text-3xl font-extrabold text-ink">{roundPct}%</p>
-          <p className="text-ink-muted">
-            {phase.roundCorrect}/{phase.roundTotal} helyes ebben a körben · összesen {totalDone}/{ordered.length} kártya
+        <div className="pop-in flex flex-col items-center gap-3 py-8 text-center">
+          <div className="flex h-28 w-28 items-center justify-center rounded-full bg-good/15 text-4xl font-black text-good">{roundPct}%</div>
+          <p className="font-bold text-ink-muted">
+            {phase.roundCorrect}/{phase.roundTotal} helyes ebben a körben
           </p>
-          <div className="mt-4 flex flex-col gap-3">
+          <div className="mt-2 w-full">
+            <div className="h-3 w-full overflow-hidden rounded-full bg-line">
+              <div className="h-full rounded-full bg-good" style={{ width: `${donePct}%` }} />
+            </div>
+            <p className="mt-1 text-xs font-bold text-ink-faint">
+              {totalDone}/{ordered.length} kártya megvan
+            </p>
+          </div>
+          <div className="mt-4 flex w-full flex-col gap-3">
             {canBlitz && (
-              <Button size="lg" onClick={() => setPhase({ kind: "blitz", idx: phase.idx })}>
-                Villámkör ⚡
+              <Button size="lg" variant="gold" onClick={() => setPhase({ kind: "blitz", idx: phase.idx })}>
+                ⚡ Villámkör
               </Button>
             )}
             <Button
@@ -212,10 +230,15 @@ function BlitzRound({
   }, [picked]);
 
   if (!item) {
+    const perfect = hits === items.length;
     return (
-      <div className="flex flex-col items-center gap-3 py-10 text-center">
-        <p className="text-3xl font-extrabold text-ink">⚡ {hits}/{items.length}</p>
-        <Button size="lg" onClick={onDone}>
+      <div className="pop-in flex flex-col items-center gap-3 py-10 text-center">
+        <p className="text-5xl">{perfect ? "⚡🏆" : "⚡"}</p>
+        <p className="text-3xl font-black text-ink">
+          {hits}/{items.length}
+        </p>
+        {perfect && <p className="font-black text-gold-deep">Hibátlan! +{XP.BLITZ_PERFECT} XP</p>}
+        <Button size="lg" onClick={onDone} className="mt-2">
           Következő kör
         </Button>
       </div>
@@ -223,15 +246,22 @@ function BlitzRound({
   }
 
   const options = optionsByCard.get(item.id) ?? [];
+  const timePct = (secondsLeft / BLITZ_SECONDS) * 100;
   return (
     <div className="mt-2">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-ink-faint">
-          {index + 1} / {items.length}
-        </p>
-        <p className={cx("text-lg font-extrabold", secondsLeft <= 5 ? "text-bad" : "text-ink")}>{secondsLeft}s</p>
+      <div className="flex items-center gap-3">
+        <div className="h-3 flex-1 overflow-hidden rounded-full bg-line">
+          <div
+            className={cx("h-full rounded-full transition-[width] duration-1000 ease-linear", secondsLeft <= 5 ? "bg-bad" : "bg-gold")}
+            style={{ width: `${timePct}%` }}
+          />
+        </div>
+        <span className={cx("shrink-0 text-lg font-black", secondsLeft <= 5 ? "text-bad" : "text-ink")}>{secondsLeft}s</span>
       </div>
-      <div className="mt-2 rounded-lg border border-line bg-surface p-6 text-center text-lg text-ink">{item.prompt}</div>
+      <p className="mt-1 text-xs font-black text-ink-faint">
+        ⚡ {index + 1}/{items.length}
+      </p>
+      <div className="mt-2 rounded-3xl border-2 border-line bg-surface p-6 text-center text-lg font-bold text-ink">{item.prompt}</div>
       <div className="mt-4 grid grid-cols-1 gap-2">
         {options.map((opt) => {
           const isCorrect = picked && opt === item.answer;
@@ -246,10 +276,11 @@ function BlitzRound({
               }}
               disabled={!!picked}
               className={cx(
-                "rounded-md border px-4 py-2.5 text-left font-medium transition-colors",
-                isCorrect && "border-good bg-good/10 text-ink",
-                isWrongPick && "border-bad bg-bad/10 text-ink",
-                !picked && "border-line-strong bg-surface text-ink hover:border-ink/40",
+                "tap-target press rounded-2xl border-2 px-4 py-3 text-left font-bold transition-colors",
+                isCorrect && "border-good bg-good/15 text-ink",
+                isWrongPick && "border-bad bg-bad/15 text-ink",
+                !picked && "border-line-strong bg-surface text-ink shadow-[0_4px_0_0_var(--color-line-strong)]",
+                picked && !isCorrect && !isWrongPick && "border-line text-ink-faint opacity-60",
               )}
             >
               {opt}

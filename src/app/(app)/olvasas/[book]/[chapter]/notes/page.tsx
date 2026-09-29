@@ -91,7 +91,7 @@ export default async function ChapterNotesPage({
           ← Vissza az olvasáshoz
         </Link>
       )}
-      <h1 className="mt-2 text-2xl font-extrabold text-ink">
+      <h1 className="mt-2 text-2xl font-black text-ink">
         {book.name_hu} {chapter}
       </h1>
       <p className="mt-1 text-sm text-ink-muted">Jegyzet és a kérdések, amikből a kvíz készül.</p>

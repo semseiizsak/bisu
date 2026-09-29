@@ -46,7 +46,7 @@ export function TimelineGame({ cardId, prompt, payload, state }: Props) {
               key={item.id}
               value={item}
               className={
-                "cursor-grab select-none rounded-md border p-3 font-medium text-ink transition-colors active:cursor-grabbing " +
+                "cursor-grab select-none rounded-2xl border-2 p-3 font-medium text-ink transition-colors active:cursor-grabbing " +
                 (isCorrectPosition
                   ? "border-good bg-good/10"
                   : isWrongPosition

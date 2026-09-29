@@ -51,7 +51,7 @@ export function MapGame({ items }: { items: Item[] }) {
     return (
       <div className="mt-8 text-center">
         <SessionEnd />
-        <p className="text-2xl font-extrabold text-ink">Kész!</p>
+        <p className="text-2xl font-black text-ink">Kész!</p>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export function MapGame({ items }: { items: Item[] }) {
       <svg
         viewBox={`0 0 ${VIEWBOX.w} ${VIEWBOX.h}`}
         onClick={handleClick}
-        className="mt-3 w-full cursor-crosshair rounded-lg border border-line bg-surface"
+        className="mt-3 w-full cursor-crosshair rounded-3xl border-2 border-line bg-surface"
         role="img"
         aria-label="Bibliai Közel-Kelet vaktérkép"
       >

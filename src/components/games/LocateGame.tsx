@@ -58,7 +58,7 @@ export function LocateGame({ items, books }: { items: Item[]; books: BookOption[
     return (
       <div className="text-center">
         <SessionEnd />
-        <p className="text-2xl font-extrabold text-ink">Kész!</p>
+        <p className="text-2xl font-black text-ink">Kész!</p>
         <p className="mt-1 text-ink-muted">{Math.round(score * 10) / 10} / {items.length} pont</p>
       </div>
     );
@@ -69,7 +69,7 @@ export function LocateGame({ items, books }: { items: Item[]; books: BookOption[
       <p className="text-sm text-ink-faint">
         {index + 1} / {items.length}
       </p>
-      <div className="mt-2 rounded-lg border border-line bg-surface p-5 font-serif text-lg leading-relaxed text-ink">
+      <div className="mt-2 rounded-3xl border-2 border-line bg-surface p-5 font-serif text-lg leading-relaxed text-ink">
         {item.payload.verse_text}
       </div>
 
@@ -100,14 +100,14 @@ export function LocateGame({ items, books }: { items: Item[]; books: BookOption[
                 value={chapterInput}
                 onChange={(e) => setChapterInput(e.target.value)}
                 placeholder="Fejezet"
-                className="w-full rounded-md border border-line-strong bg-surface px-4 py-2.5 text-ink"
+                className="w-full rounded-2xl border-2 border-line-strong bg-surface px-4 py-2.5 text-ink"
               />
               <Button onClick={finishItem}>Kész</Button>
             </div>
           )}
         </>
       ) : (
-        <div className="mt-4 rounded-md border border-line bg-surface p-4">
+        <div className="mt-4 rounded-2xl border-2 border-line bg-surface p-4">
           <p className="font-extrabold text-ink">
             {books.find((b) => b.id === item.payload.book_id)?.short_hu} {item.payload.chapter}
           </p>

@@ -14,7 +14,7 @@ export function PracticeVerse({ card }: { card: ReviewCard }) {
   if (result) {
     return (
       <div className="flex flex-col items-center gap-4 py-10 text-center">
-        <p className="text-2xl font-extrabold text-ink">{result.ok ? "Hibátlan!" : "Kész — gyakorold még egyszer."}</p>
+        <p className="text-2xl font-black text-ink">{result.ok ? "Hibátlan!" : "Kész — gyakorold még egyszer."}</p>
         <ButtonLink href="/memoriter" size="lg">
           Vissza a memoriterekhez
         </ButtonLink>

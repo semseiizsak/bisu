@@ -19,7 +19,7 @@ export function ChapterNote({ note, compact = false }: { note: ChapterNoteRow; c
       )}
 
       {note.key_verse_ref && (
-        <div className="mt-4 rounded-md border border-line-strong bg-paper px-3 py-2">
+        <div className="mt-4 rounded-2xl border-2 border-line-strong bg-paper px-3 py-2">
           <p className="text-xs font-extrabold uppercase tracking-wide text-ink-faint">Kulcsvers · {note.key_verse_ref}</p>
           {note.key_verse_why && <p className="mt-1 text-sm text-ink">{note.key_verse_why}</p>}
         </div>

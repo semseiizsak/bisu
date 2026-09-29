@@ -127,9 +127,10 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
   if (done) {
     if (!showSummary) return null;
     return (
-      <div className="flex flex-col items-center gap-3 py-10 text-center">
-        <p className="text-2xl font-extrabold text-ink">Kész!</p>
-        <p className="text-ink-muted">
+      <div className="pop-in flex flex-col items-center gap-3 py-10 text-center">
+        <p className="text-5xl">🎉</p>
+        <p className="text-2xl font-black text-ink">Kész!</p>
+        <p className="font-bold text-ink-muted">
           {correctCount}/{cards.length} helyes válasz
         </p>
       </div>
@@ -138,15 +139,17 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="h-1 w-full overflow-hidden rounded-full bg-line">
-        <div
-          className="h-full bg-accent transition-[width] duration-[var(--dur-standard)] ease-[var(--ease-standard)]"
-          style={{ width: `${progress}%` }}
-        />
+      <div className="flex items-center gap-3">
+        <div className="h-3 flex-1 overflow-hidden rounded-full bg-line">
+          <div
+            className="h-full rounded-full bg-good transition-[width] duration-[var(--dur-standard)] ease-[var(--ease-standard)]"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <span className="shrink-0 text-xs font-black text-ink-faint">
+          {index + 1}/{cards.length}
+        </span>
       </div>
-      <p className="text-sm text-ink-faint">
-        {index + 1} / {cards.length}
-      </p>
 
       <motion.div
         key={card.id}
@@ -164,10 +167,7 @@ export function ReviewSession({ cards, mode, onComplete, showSummary = true, mcq
 
       {revealed && <RatingButtons onRate={(r) => void rate(r)} suggested={suggested} />}
 
-      <button
-        onClick={flagAndSkip}
-        className="mx-auto text-xs text-ink-faint underline underline-offset-4 hover:text-ink-muted"
-      >
+      <button onClick={flagAndSkip} className="mx-auto text-xs font-bold text-ink-faint underline underline-offset-4 hover:text-ink-muted">
         Nem fontos kérdés — elrejtés
       </button>
     </div>

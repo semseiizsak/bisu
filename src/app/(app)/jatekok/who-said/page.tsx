@@ -19,7 +19,7 @@ export default async function WhoSaidPage() {
       <Link href="/jatekok" className="text-sm font-extrabold text-ink-muted">
         ← Játékok
       </Link>
-      <h1 className="mt-2 text-2xl font-extrabold text-ink">Ki mondta?</h1>
+      <h1 className="mt-2 text-2xl font-black text-ink">Ki mondta?</h1>
       {items.length ? <QuizGame items={items} mode="game:who-said" /> : <p className="mt-6 text-ink-muted">Nincs még elég kérdés — olvass pár fejezetet.</p>}
     </main>
   );

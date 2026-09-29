@@ -81,7 +81,7 @@ export function NumbersGame({ items }: { items: Item[] }) {
     return (
       <div className="mt-8 text-center">
         <SessionEnd />
-        <p className="text-2xl font-extrabold text-ink">Idő!</p>
+        <p className="text-2xl font-black text-ink">Idő!</p>
         <p className="mt-1 text-ink-muted">
           {correct} / {answered} helyes
         </p>
@@ -98,7 +98,7 @@ export function NumbersGame({ items }: { items: Item[] }) {
         <p className="text-lg font-extrabold text-ink">{secondsLeft}s</p>
       </div>
 
-      <div className="mt-3 rounded-lg border border-line bg-surface p-5 text-center text-lg text-ink">{round.prompt}</div>
+      <div className="mt-3 rounded-3xl border-2 border-line bg-surface p-5 text-center text-lg text-ink">{round.prompt}</div>
 
       {isContrast && contrastOptions ? (
         <div className="mt-4 grid grid-cols-2 gap-2">

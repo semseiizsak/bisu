@@ -40,7 +40,7 @@ export default async function MapPage() {
       <Link href="/jatekok" className="text-sm font-extrabold text-ink-muted">
         ← Játékok
       </Link>
-      <h1 className="mt-2 text-2xl font-extrabold text-ink">Térkép</h1>
+      <h1 className="mt-2 text-2xl font-black text-ink">Térkép</h1>
       {items.length ? <MapGame items={items} /> : <p className="mt-6 text-ink-muted">Nincs még helyszín-adat.</p>}
     </main>
   );

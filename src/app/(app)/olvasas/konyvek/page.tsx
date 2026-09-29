@@ -12,7 +12,7 @@ export default function BooksPage() {
           ← Olvasás
         </Link>
       </div>
-      <h1 className="mt-2 text-2xl font-extrabold text-ink">Válassz könyvet</h1>
+      <h1 className="mt-2 text-2xl font-black text-ink">Válassz könyvet</h1>
       <p className="mt-1 text-sm text-ink-muted">Bármelyik könyv 1. fejezetétől kezdve szabadon olvashatsz, lapozva tovább.</p>
 
       {[
@@ -26,7 +26,7 @@ export default function BooksPage() {
               <Link
                 key={b.slug}
                 href={`/olvasas/${b.slug}/1`}
-                className="rounded-md border border-line bg-surface px-3 py-2.5 text-sm font-extrabold text-ink hover:border-ink/40"
+                className="rounded-2xl border-2 border-line bg-surface px-3 py-2.5 text-sm font-extrabold text-ink hover:border-ink/40"
               >
                 {b.name_hu}
               </Link>

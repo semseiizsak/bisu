@@ -22,7 +22,7 @@ export default async function BossPage() {
       <Link href="/jatekok" className="text-sm font-extrabold text-ink-muted">
         ← Játékok
       </Link>
-      <h1 className="mt-2 text-2xl font-extrabold text-ink">Boss fight</h1>
+      <h1 className="mt-2 text-2xl font-black text-ink">Boss fight</h1>
       <p className="mt-1 text-ink-muted">Egy könyv kérdései, 20 másodperc / kérdés. 85% felett bónusz jár.</p>
       {eligible.length ? (
         <BossFightGame books={eligible} />

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { buildSessionPlan } from "@/lib/session/build-session";
 import { computeDayProgress } from "@/lib/session/day-progress";
@@ -10,35 +11,17 @@ import { gameLabel } from "@/lib/content/games";
 import { currentDayIndex } from "@/lib/session/current-day";
 import { getDaySpan } from "@/lib/session/day-span";
 import { PIPELINE_KIND } from "@/lib/pipeline/run";
-import { cx } from "@/lib/cx";
 import { ButtonLink } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { DayRing } from "@/components/ui/DayRing";
-import { StreakIcon } from "@/components/nav/icons";
 import { BadgeToast } from "@/components/badges/BadgeToast";
-import { QuestList } from "@/components/quests/QuestList";
 import { QuestToast } from "@/components/quests/QuestToast";
 import { SermonRecs } from "@/components/sermons/SermonRecs";
 import { PipelineKick } from "@/components/reading/PipelineKick";
+import { TodayHero } from "@/components/today/TodayHero";
+import { DayPath, type PathStep } from "@/components/today/DayPath";
+import { DayComplete } from "@/components/today/DayComplete";
+import { BonusChips } from "@/components/today/BonusChips";
 
 const SRS_BLOCK_TYPES = ["review", "new", "weak"];
-
-type RowState = "done" | "partial" | "todo";
-
-function StatusChip({ state, label }: { state: RowState; label: string }) {
-  return (
-    <span
-      className={cx(
-        "rounded-full px-2.5 py-1 text-xs font-extrabold",
-        state === "done" && "bg-good/70 text-paper",
-        state === "partial" && "bg-warn/25 text-ink",
-        state === "todo" && "bg-line text-ink-faint",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
 
 export default async function TodayPage() {
   const supabase = await createClient();
@@ -64,7 +47,6 @@ export default async function TodayPage() {
   ]);
 
   // Wave 3: things that depend on the plan, the streak or the quest update.
-  // Today's chapters plus tomorrow's, so tomorrow is ready before the cron runs.
   const upcoming = [...span.chapters, ...nextSpan.chapters];
   const bookSlugs = Array.from(new Set(upcoming.map((c) => c.book_slug)));
   const [progress, newBadges, questRows, { data: runs }] = await Promise.all([
@@ -77,8 +59,6 @@ export default async function TodayPage() {
   ]);
   const dueVerseCount = dueVerses.count ?? 0;
 
-  // Today's chapters that have no questions yet — generate them now rather
-  // than waiting for tonight's cron.
   const done = new Set((runs ?? []).map((r) => `${r.book_slug}:${r.chapter}`));
   const pendingChapters = upcoming.filter((c) => !done.has(`${c.book_slug}:${c.chapter}`)).map((c) => ({ book: c.book_slug, chapter: c.chapter }));
 
@@ -88,65 +68,57 @@ export default async function TodayPage() {
   const srsPlanned = srsBlocks.reduce((s, b) => s + b.items.length, 0);
   const srsEstRaw = srsBlocks.reduce((s, b) => s + b.est_minutes, 0);
   const quizEst = srsPlanned > 0 ? Math.max(1, Math.round((srsEstRaw * progress.srsExpected) / srsPlanned)) : 0;
-  const newCount = plan.blocks.find((b) => b.type === "new")?.items.length ?? 0;
 
   const readingDone = progress.reading >= 1;
-  const quizState: RowState = progress.srsExpected === 0 || progress.srs >= 1 ? "done" : progress.srsDone > 0 ? "partial" : "todo";
-  const gameState: RowState = progress.gameExpected === 0 || progress.game >= 1 ? "done" : progress.gameDone > 0 ? "partial" : "todo";
+  const quizDone = progress.srsExpected === 0 || progress.srs >= 1;
+  const gameDone = progress.gameExpected === 0 || progress.game >= 1;
+  const srsShown = Math.min(progress.srsDone, progress.srsExpected);
 
-  interface ChecklistRow {
-    key: string;
-    title: string;
-    desc: string;
-    est: number;
-    state: RowState;
-    chip: string;
-  }
-  const rows: ChecklistRow[] = [];
+  const steps: PathStep[] = [];
   if (readingBlock?.reading) {
     const r = readingBlock.reading;
-    rows.push({
+    steps.push({
       key: "reading",
+      emoji: "📖",
+      tone: "sky",
       title: "Olvasás",
       desc: `${r.book_name} ${r.ch_from}${r.ch_to !== r.ch_from ? `–${r.ch_to}` : ""}`,
-      est: readingBlock.est_minutes,
       state: readingDone ? "done" : "todo",
-      chip: readingDone ? "Kész" : "hátra van",
+      href: `/olvasas/${r.book_slug}/${r.ch_from}?flow=daily&mode=full`,
+      minutes: readingBlock.est_minutes,
     });
   }
   if (progress.srsExpected > 0) {
-    rows.push({
+    steps.push({
       key: "quiz",
-      title: "Ismétlés",
-      desc: `${Math.min(progress.srsDone, progress.srsExpected)}/${progress.srsExpected} kérdés${newCount ? ` · ${newCount} új` : ""}`,
-      est: quizEst,
-      state: quizState,
-      chip: quizState === "done" ? "Kész" : quizState === "partial" ? `${Math.min(progress.srsDone, progress.srsExpected)}/${progress.srsExpected}` : "hátra van",
+      emoji: "🧠",
+      tone: "accent",
+      title: "Kvíz",
+      desc: `${progress.srsExpected} kérdés a mai fejezetekből`,
+      state: quizDone ? "done" : "todo",
+      href: "/ma/session?mode=full",
+      minutes: Math.max(1, Math.round(quizEst * (1 - progress.srs))),
+      progress: progress.srsDone > 0 && !quizDone ? `${srsShown}/${progress.srsExpected}` : undefined,
     });
   }
   if (gameBlock) {
-    rows.push({
+    steps.push({
       key: "game",
+      emoji: "🎮",
+      tone: "violet",
       title: "Játék",
       desc: gameBlock.game ? gameLabel(gameBlock.game.game) : "",
-      est: gameBlock.est_minutes,
-      state: gameState,
-      chip: gameState === "done" ? "Kész" : gameState === "partial" ? "folyamatban" : "hátra van",
+      state: gameDone ? "done" : "todo",
+      href: gameBlock.game ? `/jatekok/${gameBlock.game.game}` : "/jatekok",
+      minutes: gameBlock.est_minutes,
     });
   }
+  // The first unfinished step is "current"; everything after it stays quiet.
+  const currentStep = steps.find((s) => s.state !== "done");
+  if (currentStep) currentStep.state = "current";
 
-  const remainingMinutes = Math.round(
-    rows.reduce((s, r) => {
-      if (r.state === "done") return s;
-      if (r.key === "quiz") return s + r.est * (1 - progress.srs);
-      if (r.key === "game") return s + r.est * (1 - progress.game);
-      return s + r.est;
-    }, 0),
-  );
-  const allDone = rows.length > 0 && rows.every((r) => r.state === "done");
-
-  const readingPending = !!readingBlock?.reading && !readingDone;
-  const canStartSession = progress.srsExpected > 0 || readingPending;
+  const remainingMinutes = steps.filter((s) => s.state !== "done").reduce((s, st) => s + (st.minutes ?? 0), 0);
+  const allDone = steps.length > 0 && steps.every((s) => s.state === "done");
 
   let sermonBook: { id: number; name_hu: string } | null = null;
   if (allDone && readingBlock?.reading) {
@@ -154,108 +126,80 @@ export default async function TodayPage() {
     sermonBook = data;
   }
 
-  function sessionHref(mode: "full" | "short") {
-    if (readingPending && readingBlock?.reading) {
-      return `/olvasas/${readingBlock.reading.book_slug}/${readingBlock.reading.ch_from}?flow=daily&mode=${mode}`;
-    }
-    return `/ma/session?mode=${mode}`;
-  }
+  const ctaLabel = !currentStep
+    ? ""
+    : currentStep.key === "reading"
+      ? "Kezdjük: olvasás"
+      : currentStep.key === "quiz"
+        ? progress.srsDone > 0
+          ? "Kvíz folytatása"
+          : "Kvíz indítása"
+        : `Mai játék: ${currentStep.desc}`;
+  const subtitle = allDone ? "Minden kész mára 🎉" : remainingMinutes > 0 ? `Még kb. ${remainingMinutes} perc` : "Mai adag";
 
   return (
-    <main className="mx-auto max-w-md px-4 pt-8">
+    <main className="mx-auto max-w-md px-4 pt-6">
       <BadgeToast badges={newBadges} />
       <QuestToast dayIdx={dayIdx} quests={newQuests} />
-      <h1 className="text-2xl font-extrabold text-ink">Ma</h1>
 
-      <div className="mt-4 flex items-center gap-4">
-        <DayRing reading={progress.reading} srs={progress.srs} game={progress.game} />
-        <div>
-          <p className="text-sm text-ink-muted">
-            {`${dayIdx}. nap`}
-            {allDone ? " · minden kész mára" : remainingMinutes > 0 ? ` · még kb. ${remainingMinutes} perc` : ""}
-          </p>
-          {streak.current > 0 && (
-            <p className="mt-1 flex items-center gap-1.5 text-sm font-extrabold text-accent">
-              <StreakIcon width={16} height={16} />
-              {streak.current} napos sorozat
-            </p>
-          )}
-          <p className="mt-1 text-sm font-extrabold text-ink-muted">
-            Szint {xpSummary.level} · ma +{xpSummary.todayXp} XP
-          </p>
+      <TodayHero dayIdx={dayIdx} streak={streak.current} totalXp={xpSummary.totalXp} todayXp={xpSummary.todayXp} subtitle={subtitle} />
+
+      {steps.length > 0 ? <DayPath steps={steps} /> : <p className="mt-8 text-center text-ink-muted">Nincs ma mit tenni — pihenj. 🌿</p>}
+
+      {pendingChapters.length > 0 && (
+        <div className="-mt-2 mb-4">
+          <PipelineKick chapters={pendingChapters} compact />
         </div>
-      </div>
-
-      <div className="mt-6 flex flex-col gap-2">
-        {rows.map((r) => (
-          <Card key={r.key} className={cx("flex items-center justify-between px-4 py-3", r.state === "done" && "opacity-60")}>
-            <div>
-              <p className="font-extrabold text-ink">{r.title}</p>
-              {r.desc && <p className="text-sm text-ink-muted">{r.desc}</p>}
-            </div>
-            <div className="flex items-center gap-2">
-              <StatusChip state={r.state} label={r.chip} />
-              {r.state !== "done" && <span className="text-sm font-extrabold text-ink-faint">{r.est}′</span>}
-            </div>
-          </Card>
-        ))}
-        {rows.length === 0 && <p className="text-ink-muted">Nincs ma mit tenni — pihenj.</p>}
-        {pendingChapters.length > 0 && (
-          <Card className="px-4 py-3">
-            <PipelineKick chapters={pendingChapters} compact />
-          </Card>
-        )}
-      </div>
-
-      {dueVerseCount > 0 && (
-        <Card className="mt-2 flex items-center justify-between px-4 py-3">
-          <div>
-            <p className="font-extrabold text-ink">Memoriter</p>
-            <p className="text-sm text-ink-muted">{dueVerseCount} esedékes vers</p>
-          </div>
-          <ButtonLink href="/memoriter" size="sm" variant="secondary">
-            Gyakorlom
-          </ButtonLink>
-        </Card>
       )}
 
-      <QuestList quests={questRows} />
-
-      <div className="mt-8 flex flex-col gap-3">
-        {allDone ? (
-          <>
-            <p className="text-center font-extrabold text-good">A mai nap teljesítve ✓</p>
-            <ButtonLink size="lg" variant="secondary" href="/ma/session?mode=short">
-              Extra kör (10′)
+      {allDone ? (
+        <DayComplete todayXp={xpSummary.todayXp} streak={streak.current} />
+      ) : (
+        currentStep && (
+          <div className="flex flex-col items-center gap-3">
+            <ButtonLink size="lg" href={currentStep.href} className="w-full">
+              {ctaLabel}
+              {currentStep.minutes ? <span className="font-bold opacity-80">· {currentStep.minutes}′</span> : null}
             </ButtonLink>
-            {sermonBook && readingBlock?.reading && (
-              <Suspense fallback={null}>
-                <SermonRecs
-                  bookId={sermonBook.id}
-                  chapter={readingBlock.reading.ch_from}
-                  chapterTo={readingBlock.reading.ch_to}
-                  bookNameHu={sermonBook.name_hu}
-                  focusNote={readingBlock.reading.focus_note}
-                />
-              </Suspense>
+            {!quizDone && progress.srsExpected > 0 && (
+              <Link href="/ma/session?mode=short" className="text-sm font-extrabold text-ink-muted underline underline-offset-4">
+                Csak egy gyors 10 perces kör
+              </Link>
             )}
-          </>
-        ) : (
-          canStartSession && (
-            <>
-              <ButtonLink size="lg" href={sessionHref("full")}>
-                {quizState === "partial" ? "Folytatás" : "Mai adag"} ({remainingMinutes}′)
-              </ButtonLink>
-              <ButtonLink size="lg" variant="secondary" href={sessionHref("short")}>
-                Rövid (10′)
-              </ButtonLink>
-            </>
-          )
-        )}
-        <ButtonLink size="lg" variant="ghost" href="/olvasas">
-          Csak olvasás
-        </ButtonLink>
+          </div>
+        )
+      )}
+
+      {dueVerseCount > 0 && (
+        <Link
+          href="/memoriter"
+          className="tap-target mt-4 flex items-center justify-between rounded-2xl border-2 border-line bg-surface px-4 py-3"
+        >
+          <span className="font-black text-ink">
+            📜 Memoriter <span className="ml-1 rounded-lg bg-accent/12 px-2 py-0.5 text-xs text-accent">{dueVerseCount} esedékes</span>
+          </span>
+          <span className="text-sm font-extrabold text-ink-muted">Gyakorlom →</span>
+        </Link>
+      )}
+
+      <div className="mt-6">
+        <BonusChips quests={questRows} />
       </div>
+
+      {allDone && sermonBook && readingBlock?.reading && (
+        <details className="mt-6 rounded-2xl border-2 border-line bg-surface px-4 py-3">
+          <summary className="cursor-pointer font-black text-ink">🎧 Prédikációk a mai fejezetekhez</summary>
+          <Suspense fallback={null}>
+            <SermonRecs
+              bookId={sermonBook.id}
+              chapter={readingBlock.reading.ch_from}
+              chapterTo={readingBlock.reading.ch_to}
+              bookNameHu={sermonBook.name_hu}
+              focusNote={readingBlock.reading.focus_note}
+            />
+          </Suspense>
+        </details>
+      )}
     </main>
   );
 }
