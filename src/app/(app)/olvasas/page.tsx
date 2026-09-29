@@ -45,8 +45,11 @@ export default async function ReadingPage() {
             <div className="flex flex-col">
               {plan.segments.map((seg, i) => (
                 <p key={i} className="text-2xl font-black leading-tight text-ink">
-                  {bookById.get(seg.book_slug)?.name_hu ?? seg.book_slug} {seg.ch_from}
-                  {seg.ch_to !== seg.ch_from ? `–${seg.ch_to}` : ""}
+                  {bookById.get(seg.book_slug)?.name_hu ?? seg.book_slug}{" "}
+                  <span className="whitespace-nowrap">
+                    {seg.ch_from}
+                    {seg.ch_to !== seg.ch_from ? `–${seg.ch_to}` : ""}
+                  </span>
                 </p>
               ))}
               <p className="mt-1 text-sm font-bold text-ink-muted">kb. {plan.est_minutes} perc</p>

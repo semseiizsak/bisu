@@ -11,7 +11,7 @@ export function DayComplete({ todayXp, streak }: Props) {
   return (
     <section className="relative mt-2">
       <Confetti />
-      <div className="pop-in shine rounded-3xl border-2 border-gold/50 bg-gold/15 p-6 text-center">
+      <div className="pop-in shine relative rounded-3xl border-2 border-gold/50 bg-gold/15 p-6 text-center">
         <p className="text-5xl">🏆</p>
         <p className="mt-2 text-2xl font-black text-ink">Mai nap kész!</p>
         <p className="mt-1 text-sm font-bold text-ink-muted">

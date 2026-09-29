@@ -199,8 +199,8 @@ body {
     transform: translateX(240%) rotate(20deg);
   }
 }
+/* Callers position the element themselves (relative or absolute). */
 .shine {
-  position: relative;
   overflow: hidden;
 }
 .shine::after {

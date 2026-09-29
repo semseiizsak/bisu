@@ -97,7 +97,7 @@ export default async function ProgressPage() {
 
       {/* Level hero */}
       <section className="flex items-center gap-4">
-        <div className="shine flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-3xl bg-violet text-white shadow-[0_5px_0_0_var(--color-violet-deep)]">
+        <div className="shine relative flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-3xl bg-violet text-white shadow-[0_5px_0_0_var(--color-violet-deep)]">
           <span className="text-[10px] font-black uppercase tracking-wide opacity-80">Szint</span>
           <span className="text-4xl font-black leading-none">{level}</span>
         </div>

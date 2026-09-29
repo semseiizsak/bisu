@@ -47,7 +47,7 @@ export function BadgeToast({ badges }: { badges: BadgeInfo[] }) {
             transition={{ type: "spring", stiffness: 420, damping: 26 }}
             className="pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-3xl border-2 border-gold/60 bg-gold/20 p-4 shadow-lg backdrop-blur"
           >
-            <div className="shine flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold text-3xl shadow-[0_3px_0_0_var(--color-gold-deep)]">
+            <div className="shine relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold text-3xl shadow-[0_3px_0_0_var(--color-gold-deep)]">
               {badgeEmoji(current)}
             </div>
             <div className="min-w-0">
