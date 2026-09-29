@@ -5,6 +5,7 @@ import { computeStreak } from "@/lib/streak/compute";
 import { DailySession } from "@/components/session/DailySession";
 import { DAILY_QUIZ_CAP, SHORT_QUIZ_CAP } from "@/lib/session/constants";
 import type { SessionMode } from "@/lib/session/types";
+import { recordSessionTarget } from "@/lib/session/session-target";
 
 const QUIZ_BLOCKS = ["review", "new", "weak"];
 
@@ -43,7 +44,7 @@ export default async function SessionPage({
   const cap = mode === "short" ? SHORT_QUIZ_CAP : DAILY_QUIZ_CAP;
   const cardIds = capProportionally(plan.blocks, cap);
 
-  const [cards, streak] = await Promise.all([loadReviewCards(supabase, cardIds), computeStreak(supabase)]);
+  const [cards, streak] = await Promise.all([loadReviewCards(supabase, cardIds), computeStreak(supabase), recordSessionTarget(supabase, cardIds.length)]);
   const game = plan.blocks.find((b) => b.type === "game")?.game?.game ?? null;
 
   return (

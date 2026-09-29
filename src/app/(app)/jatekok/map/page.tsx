@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { MapGame } from "@/components/games/MapGame";
+import { ensureGameCards } from "@/lib/pipeline/generate";
 
 export default async function MapPage() {
   const supabase = await createClient();
+  await ensureGameCards(supabase, "map");
   const { data: places } = await supabase.from("geo_places").select("id, entity_id, svg_x, svg_y, tolerance, place_type");
   const { data: entities } = await supabase.from("entities").select("id, name_hu");
   const nameById = new Map((entities ?? []).map((e) => [e.id, e.name_hu]));

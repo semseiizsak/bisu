@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import type { SessionPlan } from "@/lib/session/types";
 import { DAILY_QUIZ_CAP } from "@/lib/session/constants";
+import { getSessionTarget } from "@/lib/session/session-target";
 
 type DB = SupabaseClient<Database>;
 
@@ -29,7 +30,10 @@ export async function computeDayProgress(db: DB, plan: SessionPlan, now: Date = 
 
   const readingBlock = plan.blocks.find((b) => b.type === "reading");
   const srsPlanned = plan.blocks.filter((b) => SRS_BLOCK_TYPES.includes(b.type)).reduce((s, b) => s + b.items.length, 0);
-  const srsExpected = Math.min(DAILY_QUIZ_CAP, srsPlanned);
+  // The target set when today's first session was opened wins; before that,
+  // it's whatever the planner would offer right now.
+  const storedTarget = await getSessionTarget(db, now);
+  const srsExpected = storedTarget ?? Math.min(DAILY_QUIZ_CAP, srsPlanned);
   const gameBlock = plan.blocks.find((b) => b.type === "game");
   // A "game" block is always one bounded round of whichever mode got rotated
   // in for the day (locate caps at 10 items, chain at whatever the picked

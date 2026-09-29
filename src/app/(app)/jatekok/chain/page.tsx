@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ChainGame } from "@/components/games/ChainGame";
+import { ensureGameCards } from "@/lib/pipeline/generate";
 
 export default async function ChainPage() {
   const supabase = await createClient();
+  await ensureGameCards(supabase, "chain");
   const { data: edges } = await supabase.from("genealogy_edges").select("parent_id, child_id, line");
   const { data: entities } = await supabase.from("entities").select("id, name_hu");
   const nameById = new Map((entities ?? []).map((e) => [e.id, e.name_hu]));

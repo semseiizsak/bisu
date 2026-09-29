@@ -5,10 +5,10 @@ import { estimateCardMinutes, estimateReadingMinutes } from "@/lib/session/time-
 import type { SessionBlock, SessionPlan, SessionMode } from "@/lib/session/types";
 import { currentDayIndex } from "@/lib/session/current-day";
 import { DEFAULT_DAILY_BUDGET_MINUTES, DEFAULT_NEW_CARDS_PER_DAY, SHORT_SESSION_MINUTES } from "@/lib/session/constants";
+import { availableGames, pickGame } from "@/lib/games/availability";
 
 type DB = SupabaseClient<Database>;
 
-const GAME_ROTATION = ["locate", "timeline", "numbers", "chain", "who-said", "map", "boss"] as const;
 
 /** How many previous plan days count as "just read" for new-card priority. */
 const RECENT_READING_DAYS = 2;
@@ -262,8 +262,8 @@ export async function buildSessionPlan(db: DB, now: Date = new Date(), mode: Ses
   const usedSoFar = blocks.reduce((s, b) => s + b.est_minutes, 0);
   const gameBudget = Math.min(8, Math.max(0, budget - usedSoFar));
   if (gameBudget >= 2) {
-    const game = GAME_ROTATION[(dayIdx - 1) % GAME_ROTATION.length];
-    blocks.push({ type: "game", items: [], game: { game }, est_minutes: Math.round(gameBudget), label: "Játék" });
+    const game = pickGame(dayIdx, await availableGames(db));
+    if (game) blocks.push({ type: "game", items: [], game: { game }, est_minutes: Math.round(gameBudget), label: "Játék" });
   }
 
   return { day_idx: dayIdx, blocks, total_est: Math.round(blocks.reduce((s, b) => s + b.est_minutes, 0)) };

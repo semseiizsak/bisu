@@ -224,3 +224,14 @@ export async function generateGameCards(admin: DB): Promise<{ cardsCreated: numb
 
   return { cardsCreated: newCards.length };
 }
+
+/**
+ * Builds the game-only cards on demand: the game pages call this when they
+ * find no card of their type, so timeline / chain / map work as soon as the
+ * question pipeline has produced events, genealogy edges or places.
+ */
+export async function ensureGameCards(admin: DB, type: "locate" | "order" | "chain" | "map"): Promise<void> {
+  const { count } = await admin.from("cards").select("id", { count: "exact", head: true }).eq("type", type).eq("active", true);
+  if ((count ?? 0) > 0) return;
+  await generateGameCards(admin);
+}

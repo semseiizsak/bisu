@@ -48,7 +48,7 @@ export default async function TodayPage() {
   const dayIdx = await currentDayIndex(supabase);
 
   // Wave 2: everything that only needs the day index, in parallel.
-  const [plan, streak, xpSummary, newQuests, dueVerses, span] = await Promise.all([
+  const [plan, streak, xpSummary, newQuests, dueVerses, span, nextSpan] = await Promise.all([
     buildSessionPlan(supabase, now, "full", dayIdx),
     computeStreak(supabase, now),
     reconcileXp(supabase, dayIdx, now),
@@ -60,10 +60,13 @@ export default async function TodayPage() {
       .eq("cards.card_states.suspended", false)
       .lte("cards.card_states.due_at", now.toISOString()),
     getDaySpan(supabase, dayIdx),
+    getDaySpan(supabase, dayIdx + 1),
   ]);
 
   // Wave 3: things that depend on the plan, the streak or the quest update.
-  const bookSlugs = Array.from(new Set(span.chapters.map((c) => c.book_slug)));
+  // Today's chapters plus tomorrow's, so tomorrow is ready before the cron runs.
+  const upcoming = [...span.chapters, ...nextSpan.chapters];
+  const bookSlugs = Array.from(new Set(upcoming.map((c) => c.book_slug)));
   const [progress, newBadges, questRows, { data: runs }] = await Promise.all([
     computeDayProgress(supabase, plan, now),
     checkAndAwardBadges(supabase, streak),
@@ -77,7 +80,7 @@ export default async function TodayPage() {
   // Today's chapters that have no questions yet — generate them now rather
   // than waiting for tonight's cron.
   const done = new Set((runs ?? []).map((r) => `${r.book_slug}:${r.chapter}`));
-  const pendingChapters = span.chapters.filter((c) => !done.has(`${c.book_slug}:${c.chapter}`)).map((c) => ({ book: c.book_slug, chapter: c.chapter }));
+  const pendingChapters = upcoming.filter((c) => !done.has(`${c.book_slug}:${c.chapter}`)).map((c) => ({ book: c.book_slug, chapter: c.chapter }));
 
   const readingBlock = plan.blocks.find((b) => b.type === "reading");
   const gameBlock = plan.blocks.find((b) => b.type === "game");

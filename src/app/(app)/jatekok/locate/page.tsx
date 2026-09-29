@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { LocateGame } from "@/components/games/LocateGame";
+import { ensureGameCards } from "@/lib/pipeline/generate";
 
 export default async function LocatePage() {
   const supabase = await createClient();
+  await ensureGameCards(supabase, "locate");
   const [{ data: cards }, { data: books }] = await Promise.all([
     supabase.from("cards").select("id, prompt, payload").eq("type", "locate").eq("active", true).limit(300),
     supabase.from("books").select("id, slug, short_hu, order_idx").order("order_idx"),

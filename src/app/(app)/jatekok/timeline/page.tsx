@@ -2,9 +2,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { TimelineGame } from "@/components/games/TimelineGame";
 import type { PersistedCardState } from "@/lib/fsrs/engine";
+import { ensureGameCards } from "@/lib/pipeline/generate";
 
 export default async function TimelinePage() {
   const supabase = await createClient();
+  await ensureGameCards(supabase, "order");
   const { data: cards } = await supabase.from("cards").select("id, prompt, answer, payload").eq("type", "order").eq("active", true).limit(50);
   const pick = (cards ?? [])[Math.floor(Math.random() * Math.max(1, (cards ?? []).length))];
 
